@@ -1,0 +1,201 @@
+# INSTRUCTIONS POUR SERVICE CCTV - GUIDE COMPLET
+
+## OBJECTIF
+Créer un service web qui permet de visionner les vidéos d'un système CCTV via une API spécifique avec authentification XML et règle des "dossiers D".
+
+## ARCHITECTURE CCTV EXISTANTE
+
+### Serveur CCTV
+- **URL principale**: http://xxx.xxx.fr:8090
+- **URL TLS**: https://xxx.xxx.fr:4434
+- **Login**: CCTV
+- **Mot de passe hashé**: xxxxxxxxxxxxxxxxx
+
+### Structure des caméras (6 caméras disponibles)
+```
+Caméra 1: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH001_50F36D36752750F36D36752750F30000/Regular
+Caméra 2: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH002_50F36D36752750F36D36752750F30001/Regular
+Caméra 3: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH003_50F36D36752750F36D36752750F30002/Regular
+Caméra 4: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH004_50F36D36752750F36D36752750F30003/Regular
+Caméra 5: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH005_50F36D36752750F36D36752750F30004/Regular
+Caméra 6: /CCTV/RecSpace_360673CBB6824C65B7CB3A2F611A6110/CH006_50F36D36752750F36D36752750F30005/Regular
+```
+
+## FONCTIONNALITÉS REQUISES
+
+### 1. AUTHENTIFICATION
+- **Endpoint**: `/cgi-bin/authLogin.cgi`
+- **Paramètres**: `user=CCTV&serviceKey=1&pwd=xxxxxxxxxxxxxxxxx`
+- **Réponse XML**: Token dans `<authSid>TOKEN_ICI</authSid>`
+- **Durée**: 1 heure
+- **Gestion**: Auto-renouvellement avant expiration
+
+### 2. RÈGLE DES "DOSSIERS D" (CRITIQUE)
+Pour chaque heure recherchée, essayer DANS CET ORDRE:
+1. **Dossier normal**: `/YYYY-MM-DD/HH/` (ex: `/2025-07-15/08/`)
+2. **Dossier avec D**: `/YYYY-MM-DD/HHD/` (ex: `/2025-07-15/08D/`)
+
+**Important**: Les dossiers normaux (sans D) retournent `success=true, has_datas=False` même s'ils sont vides.
+Les dossiers D retournent `success=None, has_datas=True` quand ils contiennent des vidéos.
+
+### 3. LISTING DES VIDÉOS
+- **Endpoint**: `/cgi-bin/filemanager/utilRequest.cgi`
+- **Fonction**: `func=get_list`
+- **Paramètres obligatoires**:
+  ```
+  sid=TOKEN
+  is_iso=0
+  list_mode=all
+  path=CHEMIN_CAMERA/YYYY-MM-DD/HH[D]/
+  hidden_file=0
+  dir=ASC
+  limit=200
+  sort=filename
+  start=0
+  ```
+
+### 4. TÉLÉCHARGEMENT DES VIDÉOS
+- **Endpoint**: `/cgi-bin/filemanager/utilRequest.cgi`
+- **Fonction**: `func=get_viewer`
+- **Paramètres**:
+  ```
+  sid=TOKEN
+  source_path=CHEMIN_COMPLET_DOSSIER
+  source_file=NOM_FICHIER.mp4
+  ```
+
+### 5. CACHE INTELLIGENT
+- **Stockage local**: Éviter les téléchargements répétés
+- **Nommage**: `cam{ID}_{timestamp}_{hash}.mp4`
+- **Répertoire**: `/static/cache/videos/`
+
+### 6. FORMAT DE RÉPONSE API
+L'API doit retourner ce format JSON exact:
+```json
+[
+  {
+    "0": "/static/cache/videos/cam1_1752567000_abc123.mp4",
+    "1": "/static/cache/videos/cam1_1752567120_def456.mp4"
+  },
+  10,
+  -60,
+  1,
+  {
+    "0": 1752567000,
+    "1": 1752567120
+  }
+]
+```
+
+**Explication**:
+- `[0]`: Dictionnaire des URLs des vidéos (index -> URL)
+- `[1]`: Index de la vidéo la plus proche du timestamp demandé
+- `[2]`: Décalage en secondes entre la vidéo trouvée et le timestamp demandé
+- `[3]`: ID de la caméra
+- `[4]`: Dictionnaire des timestamps (index -> timestamp Unix)
+
+### 7. INTERFACE WEB
+- **Sélecteur de caméra**: 1 à 6
+- **Sélecteur datetime**: HTML5 datetime-local
+- **Vidéo principale**: Affiche la vidéo la plus proche
+- **Grille de vidéos**: Toutes les vidéos disponibles (±10 autour de la cible)
+- **Test API**: Bouton pour vérifier le fonctionnement
+
+## PIÈGES À ÉVITER
+
+### 🚨 PIÈGE #1: PARSING XML INCORRECT
+**Problème**: Chercher le token dans une structure XML incorrecte
+**Solution**: Le token est dans `root.find('.//authSid').text` ou `result.QDocRoot.authSid[0]`
+
+### 🚨 PIÈGE #2: RÈGLE DES DOSSIERS D MAL IMPLÉMENTÉE
+**Problème**: Ne pas essayer les deux types de dossiers ou mauvais ordre
+**Solution**: 
+1. Tester d'abord le dossier normal (`08/`)
+2. Si vide, tester le dossier D (`08D/`)
+3. S'arrêter dès qu'on trouve des vidéos
+
+### 🚨 PIÈGE #3: PROBLÈMES CORS
+**Problème**: Interface sur port A, API sur port B -> "Failed to fetch"
+**Solution**: Servir l'interface ET l'API depuis le même serveur/port
+
+### 🚨 PIÈGE #4: GESTION DES HEURES
+**Problème**: Ne vérifier qu'une seule heure
+**Solution**: Vérifier heure-1, heure, heure+1 pour plus de chances de trouver des vidéos
+
+### 🚨 PIÈGE #5: EXTRACTION TIMESTAMP
+**Problème**: Timestamps incorrects depuis les noms de fichiers
+**Format attendu**: `YYYYMMDD_HHMMSS_*.mp4`
+**Exemple**: `20250715_081000_001.mp4` -> timestamp Unix
+
+### 🚨 PIÈGE #6: INTERFACES TROP COMPLEXES
+**Problème**: Synchronisation datetime/timestamp/timezone compliquée
+**Solution**: Utiliser datetime-local HTML5 simple, convertir côté serveur
+
+## TECHNOLOGIES RECOMMANDÉES
+
+### Backend (choisir une)
+- **Python Flask**: Simple, rapide à développer
+- **Node.js Express**: Bon pour API REST
+- **Go**: Performance, mais plus verbeux
+- **PHP**: Si environnement existant
+
+### Frontend
+- **HTML/CSS/JS vanilla**: Simple, pas de dépendances
+- **React**: Si besoin d'interface riche
+- **Vue.js**: Alternative légère à React
+
+## ENDPOINTS À IMPLÉMENTER
+
+### `/api/cctv/videos` (GET)
+**Paramètres**:
+- `target`: Timestamp Unix cible
+- `camera`: ID caméra (1-6)
+
+**Réponse**: Format JSON décrit ci-dessus
+
+### `/api/health` (GET)
+**Réponse**: `{"status": "healthy", "timestamp": UNIX_TIME}`
+
+### `/` (GET)
+Interface web principale
+
+## DONNÉES DE TEST
+**Timestamp avec vidéos**: `1752567000` (2025-07-15T08:10:00)
+**URL test**: `/api/cctv/videos?target=1752567000&camera=1`
+
+## STRUCTURE DE FICHIERS SUGGÉRÉE
+```
+/
+├── app.py (ou server.js, main.go...)
+├── static/
+│   ├── index.html
+│   ├── cache/
+│   │   └── videos/ (créé automatiquement)
+│   └── videos/
+│       └── videoerror.mp4 (vidéo par défaut si aucune trouvée)
+└── CCTV_SERVICE_INSTRUCTIONS.txt (ce fichier)
+```
+
+## VARIABLES D'ENVIRONNEMENT OPTIONNELLES
+```
+CCTV_SERVER_IP=http://xxx.xxx.fr:8090
+CCTV_SERVER_TLS=https://xxx.xxx.fr:4434
+CCTV_LOGIN=CCTV
+CCTV_HASHED_PASSWORD=xxxxxxxxxxxxxxxxx
+```
+
+## VALIDATION
+1. **Test d'authentification**: Token récupéré correctement
+2. **Test règle D**: Dossiers D trouvés quand dossiers normaux vides
+3. **Test API**: Format JSON correct retourné
+4. **Test interface**: Pas d'erreurs CORS
+5. **Test cache**: Vidéos mises en cache après premier téléchargement
+
+## NOTES IMPORTANTES
+- **URL encoding**: Les chemins doivent être URL-encodés pour l'API
+- **Gestion d'erreur**: Retourner vidéo d'erreur si aucune vidéo trouvée
+- **Performance**: Implémenter le cache pour éviter re-téléchargements
+- **Sécurité**: Ne pas exposer les credentials dans les logs
+- **Threading**: Gérer l'accès concurrent au token d'authentification
+
+Cette implémentation existe déjà et fonctionne en Python Flask dans `/var/www/actinvent3/app.py` comme référence.

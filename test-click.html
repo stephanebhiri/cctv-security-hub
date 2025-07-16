@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Click Test</title>
+</head>
+<body>
+    <h1>Testing Video Click</h1>
+    
+    <p>Open browser console to see debug messages</p>
+    
+    <button onclick="testAPI()">Load Videos and Test Click</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI() {
+            try {
+                // Call the API
+                const response = await fetch('/api/cctv/videos?target=1752567000&camera=1');
+                const data = await response.json();
+                
+                console.log('API Response:', data);
+                
+                const [videos, closestIndex, offsetSeconds, cameraId, timestamps] = data;
+                
+                // Show some videos
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<h2>Videos (click to test):</h2>';
+                
+                Object.entries(videos).slice(30, 40).forEach(([index, videoUrl]) => {
+                    const div = document.createElement('div');
+                    div.style.padding = '10px';
+                    div.style.margin = '5px';
+                    div.style.border = '1px solid #ccc';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `Video ${index}: ${videoUrl}`;
+                    
+                    div.onclick = function() {
+                        console.log('Clicked:', videoUrl);
+                        window.open(videoUrl, '_blank');
+                    };
+                    
+                    resultDiv.appendChild(div);
+                });
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

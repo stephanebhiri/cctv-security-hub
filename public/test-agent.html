@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV Agent API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .panel { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .output { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; font-family: monospace; max-height: 300px; overflow-y: auto; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 CCTV Agent API Test Interface</h1>
+        
+        <div class="panel">
+            <h2>API Status</h2>
+            <div id="apiStatus" class="status warning">
+                Waiting for CCTV app to load...
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Quick Tests</h2>
+            <button onclick="testGetState()">Get State</button>
+            <button onclick="testGetItems()">Get Items</button>
+            <button onclick="testRefresh()">Refresh Now</button>
+            <button onclick="testHealthCheck()">Health Check</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+
+        <div class="panel">
+            <h2>Item Selection</h2>
+            <input type="number" id="itemIndex" placeholder="Item Index (0-based)" value="0">
+            <button onclick="testSelectItem()">Select Item by Index</button>
+            <br>
+            <input type="text" id="itemEPC" placeholder="Item EPC" value="">
+            <button onclick="testSelectByEPC()">Select Item by EPC</button>
+        </div>
+
+        <div class="panel">
+            <h2>Search & Filter</h2>
+            <input type="text" id="searchQuery" placeholder="Search items..." value="laptop">
+            <button onclick="testSearch()">Search Items</button>
+            <br>
+            <input type="number" id="timeStart" placeholder="Start timestamp" value="">
+            <input type="number" id="timeEnd" placeholder="End timestamp" value="">
+            <button onclick="testTimeRange()">Get Items by Time Range</button>
+        </div>
+
+        <div class="panel">
+            <h2>Event Monitoring</h2>
+            <button onclick="startEventMonitoring()">Start Event Monitoring</button>
+            <button onclick="stopEventMonitoring()">Stop Event Monitoring</button>
+        </div>
+
+        <div class="panel">
+            <h2>Output</h2>
+            <div id="output" class="output">
+                Ready to test CCTV Automation API...\n
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventListeners = [];
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            output.innerHTML += `${prefix} [${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = 'Output cleared.\n';
+        }
+
+        function checkAPIAvailability() {
+            const statusEl = document.getElementById('apiStatus');
+            
+            if (window.CCTV) {
+                statusEl.className = 'status success';
+                statusEl.innerHTML = '✅ CCTV API is available at window.CCTV';
+                log('CCTV Automation API detected!', 'success');
+                
+                // Log API methods
+                const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(window.CCTV))
+                    .filter(name => typeof window.CCTV[name] === 'function' && name !== 'constructor');
+                log(`Available methods: ${methods.join(', ')}`);
+            } else {
+                statusEl.className = 'status error';
+                statusEl.innerHTML = '❌ CCTV API not found. Make sure the main app is loaded.';
+            }
+        }
+
+        function testGetState() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            try {
+                const state = window.CCTV.getState();
+                log('Current state:', 'success');
+                log(JSON.stringify(state, null, 2));
+            } catch (error) {
+                log(`Error getting state: ${error.message}`, 'error');
+            }
+        }
+
+        function testGetItems() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            try {
+                const items = window.CCTV.getItems();
+                log(`Found ${items.length} items:`, 'success');
+                items.slice(0, 3).forEach((item, index) => {
+                    log(`  [${index}] ${item.designation} (${item.epc})`);
+                });
+                if (items.length > 3) {
+                    log(`  ... and ${items.length - 3} more items`);
+                }
+            } catch (error) {
+                log(`Error getting items: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSelectItem() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            const index = parseInt(document.getElementById('itemIndex').value);
+            if (isNaN(index)) return log('Please enter a valid item index', 'error');
+            
+            try {
+                log(`Selecting item at index ${index}...`);
+                const success = await window.CCTV.selectItem(index);
+                log(success ? `Item ${index} selected successfully!` : `Failed to select item ${index}`, success ? 'success' : 'error');
+            } catch (error) {
+                log(`Error selecting item: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSelectByEPC() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            const epc = document.getElementById('itemEPC').value.trim();
+            if (!epc) return log('Please enter an EPC', 'error');
+            
+            try {
+                log(`Selecting item with EPC ${epc}...`);
+                const success = await window.CCTV.selectItemByEPC(epc);
+                log(success ? `Item with EPC ${epc} selected!` : `Item with EPC ${epc} not found`, success ? 'success' : 'error');
+            } catch (error) {
+                log(`Error selecting by EPC: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRefresh() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            try {
+                log('Refreshing items...');
+                const success = await window.CCTV.refreshNow();
+                log(success ? 'Refresh completed!' : 'Refresh failed', success ? 'success' : 'error');
+            } catch (error) {
+                log(`Error refreshing: ${error.message}`, 'error');
+            }
+        }
+
+        async function testHealthCheck() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            try {
+                log('Performing health check...');
+                const success = await window.CCTV.healthCheck();
+                log(success ? 'Health check passed!' : 'Health check failed', success ? 'success' : 'error');
+            } catch (error) {
+                log(`Error in health check: ${error.message}`, 'error');
+            }
+        }
+
+        function testSearch() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            const query = document.getElementById('searchQuery').value.trim();
+            if (!query) return log('Please enter a search query', 'error');
+            
+            try {
+                const results = window.CCTV.searchItems(query);
+                log(`Search for "${query}" found ${results.length} results:`, 'success');
+                results.slice(0, 5).forEach(item => {
+                    log(`  - ${item.designation} (${item.epc})`);
+                });
+                if (results.length > 5) {
+                    log(`  ... and ${results.length - 5} more results`);
+                }
+            } catch (error) {
+                log(`Error searching: ${error.message}`, 'error');
+            }
+        }
+
+        function testTimeRange() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            const start = parseInt(document.getElementById('timeStart').value);
+            const end = parseInt(document.getElementById('timeEnd').value);
+            
+            if (isNaN(start) || isNaN(end)) {
+                return log('Please enter valid start and end timestamps', 'error');
+            }
+            
+            try {
+                const results = window.CCTV.getItemsByTimeRange(start, end);
+                log(`Found ${results.length} items between ${new Date(start * 1000).toLocaleString()} and ${new Date(end * 1000).toLocaleString()}:`, 'success');
+                results.slice(0, 3).forEach(item => {
+                    log(`  - ${item.designation} at ${new Date(item.timestamp * 1000).toLocaleString()}`);
+                });
+            } catch (error) {
+                log(`Error getting items by time range: ${error.message}`, 'error');
+            }
+        }
+
+        function startEventMonitoring() {
+            if (!window.CCTV) return log('API not available', 'error');
+            
+            stopEventMonitoring(); // Clear existing listeners
+            
+            const events = ['item-selected', 'video-loaded', 'refresh-complete', 'error', 'state-changed'];
+            
+            events.forEach(eventType => {
+                const listener = (event) => {
+                    log(`🔔 Event: ${eventType}`, 'success');
+                    if (eventType === 'state-changed') {
+                        // Don't log full state to avoid spam
+                        log(`  State updated - loading: ${event.detail.state.isLoading}, items: ${event.detail.state.items.length}`);
+                    } else {
+                        log(`  Data: ${JSON.stringify(event.detail, null, 2)}`);
+                    }
+                };
+                
+                window.CCTV.on(eventType, listener);
+                eventListeners.push({ type: eventType, listener });
+            });
+            
+            log('Started monitoring all CCTV events', 'success');
+        }
+
+        function stopEventMonitoring() {
+            if (!window.CCTV) return;
+            
+            eventListeners.forEach(({ type, listener }) => {
+                window.CCTV.off(type, listener);
+            });
+            eventListeners = [];
+            
+            log('Stopped event monitoring');
+        }
+
+        // Check API availability on load and periodically
+        checkAPIAvailability();
+        setInterval(checkAPIAvailability, 2000);
+
+        // Auto-fill some example values
+        setTimeout(() => {
+            const now = Math.floor(Date.now() / 1000);
+            document.getElementById('timeEnd').value = now;
+            document.getElementById('timeStart').value = now - 3600; // 1 hour ago
+        }, 1000);
+    </script>
+</body>
+</html>

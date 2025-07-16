@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Test</title>
+</head>
+<body>
+    <h1>Testing CCTV Videos</h1>
+    
+    <h2>Downloaded Video (should work):</h2>
+    <video controls width="640" height="480">
+        <source src="http://localhost:3002/static/cache/videos/cam1_1752567001_44d26d17.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
+    <h2>Not Downloaded Video (should show error):</h2>
+    <video controls width="640" height="480">
+        <source src="http://localhost:3002/static/cache/videos/cam1_1752562800_7ba358f4.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
+    <script>
+        document.querySelectorAll('video').forEach(video => {
+            video.onerror = function() {
+                console.error('Video error:', this.querySelector('source').src);
+                alert('Video failed to load: ' + this.querySelector('source').src);
+            };
+        });
+    </script>
+</body>
+</html>

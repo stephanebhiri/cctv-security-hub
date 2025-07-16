@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Video Playback</title>
+    <style>
+        .video-test {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+        }
+        video {
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Video Playback</h1>
+    
+    <div class="video-test">
+        <h2>Test 1: Direct cached video (should work)</h2>
+        <video id="video1" controls width="400">
+            <source src="http://localhost:3002/static/cache/videos/cam1_1752567001_44d26d17.mp4" type="video/mp4">
+        </video>
+        <div id="status1">Loading...</div>
+    </div>
+    
+    <div class="video-test">
+        <h2>Test 2: Another cached video</h2>
+        <video id="video2" controls width="400">
+            <source src="http://localhost:3002/static/cache/videos/cam1_1752567121_4c61ef0b.mp4" type="video/mp4">
+        </video>
+        <div id="status2">Loading...</div>
+    </div>
+    
+    <div class="video-test">
+        <h2>Test 3: Non-cached video (should fail)</h2>
+        <video id="video3" controls width="400">
+            <source src="http://localhost:3002/static/cache/videos/cam1_1752560000_test123.mp4" type="video/mp4">
+        </video>
+        <div id="status3">Loading...</div>
+    </div>
+    
+    <script>
+        // Monitor each video
+        for (let i = 1; i <= 3; i++) {
+            const video = document.getElementById(`video${i}`);
+            const status = document.getElementById(`status${i}`);
+            
+            video.addEventListener('loadedmetadata', function() {
+                status.textContent = '✅ Video loaded successfully';
+                status.style.color = 'green';
+            });
+            
+            video.addEventListener('error', function(e) {
+                const src = this.querySelector('source').src;
+                status.textContent = `❌ Error loading video: ${src}`;
+                status.style.color = 'red';
+                console.error(`Video ${i} error:`, e, src);
+            });
+            
+            video.addEventListener('loadstart', function() {
+                status.textContent = '⏳ Loading...';
+                status.style.color = 'orange';
+            });
+        }
+        
+        // Test direct fetch
+        async function testFetch() {
+            console.log('Testing direct fetch...');
+            try {
+                const response = await fetch('http://localhost:3002/static/cache/videos/cam1_1752567001_44d26d17.mp4');
+                console.log('Fetch response:', response.status, response.statusText);
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
+        }
+        
+        setTimeout(testFetch, 1000);
+    </script>
+</body>
+</html>

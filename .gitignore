@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment variables (contains sensitive passwords)
+.env
+
+# Logs
+*.log
+server-startup.log
+server-debug.log
+
+# Cache
+static/cache/videos/
+
+# Temporary files
+debug.html
+test.html
+
+# OS generated files
+.DS_Store
+Thumbs.db
