@@ -1,7 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Modern Global Styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Main App Container */
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: var(--spacing-md);
+}
+
+/* Header Styles */
+.app-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.app-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 4px;
+  letter-spacing: -0.025em;
+}
+
+.app-subtitle {
+  font-size: 1.1rem;
+  color: #4a5568;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+/* Main Content */
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-md);
 }
 
 /* Multi-camera specific styles */
@@ -10,41 +70,74 @@
   align-items: center;
   gap: 15px;
   padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
   margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Modern Button Styles */
 .nav-button {
-  padding: 8px 12px;
-  background-color: #667eea;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.nav-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
 }
 
 .nav-button:disabled {
-  background-color: #6c757d;
+  background: #94a3b8;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .play-button {
-  padding: 10px 20px;
-  background-color: #667eea;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.play-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
 }
 
 .refresh-button {
-  padding: 8px 16px;
-  background-color: #28a745;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+}
+
+.refresh-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(72, 187, 120, 0.4);
 }
 
 .video-info {
@@ -483,20 +576,23 @@ button:disabled {
 
 .items-table th,
 .items-table td {
-  padding: 12px;
+  padding: 6px 8px;
   text-align: left;
   border-bottom: 1px solid #dee2e6;
+  font-size: 0.875rem;
+  line-height: 1.2;
 }
 
 .items-table th {
-  background: #343a40;
+  background: #2d3748;
   color: white;
-  font-weight: 500;
+  font-weight: 600;
   position: sticky;
   top: 0;
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  letter-spacing: 0.025em;
 }
 
 .items-table th:hover {
@@ -528,30 +624,97 @@ button:disabled {
 
 .items-table .item-clickable {
   transition: background 0.2s;
+  cursor: pointer;
 }
 
 .items-table .item-clickable:hover {
   background: #e3f2fd;
 }
 
+.items-table .item-clickable td {
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+
+/* Time-based color gradient for item freshness */
+.items-table .item-clickable.time-fresh {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-left: 4px solid #28a745;
+}
+
+.items-table .item-clickable.time-recent {
+  background: linear-gradient(135deg, #e2f3d9 0%, #d1ecf1 100%);
+  border-left: 4px solid #20c997;
+}
+
+.items-table .item-clickable.time-5min {
+  background: linear-gradient(135deg, #f0f9d8 0%, #e8f5e8 100%);
+  border-left: 4px solid #6cc04a;
+}
+
+.items-table .item-clickable.time-15min {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border-left: 4px solid #ffc107;
+}
+
+.items-table .item-clickable.time-30min {
+  background: linear-gradient(135deg, #ffecd1 0%, #ffcc80 100%);
+  border-left: 4px solid #ff9800;
+}
+
+.items-table .item-clickable.time-1hour {
+  background: linear-gradient(135deg, #ffe0b2 0%, #ffab91 100%);
+  border-left: 4px solid #ff6f00;
+}
+
+.items-table .item-clickable.time-2hour {
+  background: linear-gradient(135deg, #ffccbc 0%, #ff8a65 100%);
+  border-left: 4px solid #ff3d00;
+}
+
+.items-table .item-clickable.time-6hour {
+  background: linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%);
+  border-left: 4px solid #f44336;
+}
+
+.items-table .item-clickable.time-12hour {
+  background: linear-gradient(135deg, #ffbdd8 0%, #e57373 100%);
+  border-left: 4px solid #e91e63;
+}
+
+.items-table .item-clickable.time-24hour {
+  background: linear-gradient(135deg, #f8bbd9 0%, #d32f2f 100%);
+  border-left: 4px solid #c62828;
+}
+
+.items-table .item-clickable.time-48hour {
+  background: linear-gradient(135deg, #ef9a9a 0%, #b71c1c 100%);
+  border-left: 4px solid #b71c1c;
+}
+
+/* Hover effects for different time ranges - Simplified */
+.items-table .item-clickable:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
+}
+
 .group-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: white;
   background: #6c757d;
+  line-height: 1;
 }
 
-.status-online {
-  color: #28a745;
+.time-elapsed {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
   font-weight: 500;
-}
-
-.status-offline {
-  color: #dc3545;
-  font-weight: 500;
+  color: #4a5568;
+  white-space: nowrap;
 }
 
 .items-container {
@@ -560,6 +723,62 @@ button:disabled {
   border: 1px solid #dee2e6;
   border-radius: 4px;
 }
+
+/* Time Legend */
+.time-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: 1px solid rgba(203, 213, 224, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 0.8em;
+}
+
+.time-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.time-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.time-legend-item.fresh { background: #d4edda; border-left: 3px solid #28a745; }
+.time-legend-item.recent { background: #e2f3d9; border-left: 3px solid #20c997; }
+.time-legend-item.min5 { background: #f0f9d8; border-left: 3px solid #6cc04a; }
+.time-legend-item.min15 { background: #fff3cd; border-left: 3px solid #ffc107; }
+.time-legend-item.min30 { background: #ffecd1; border-left: 3px solid #ff9800; }
+.time-legend-item.hour1 { background: #ffe0b2; border-left: 3px solid #ff6f00; }
+.time-legend-item.hour2 { background: #ffccbc; border-left: 3px solid #ff3d00; }
+.time-legend-item.hour6 { background: #ffcdd2; border-left: 3px solid #f44336; }
+.time-legend-item.hour12 { background: #ffbdd8; border-left: 3px solid #e91e63; }
+.time-legend-item.hour24 { background: #f8bbd9; border-left: 3px solid #c62828; }
+.time-legend-item.hour48 { background: #ef9a9a; border-left: 3px solid #b71c1c; }
+
+.time-legend-color.fresh { background: #28a745; }
+.time-legend-color.recent { background: #20c997; }
+.time-legend-color.min5 { background: #6cc04a; }
+.time-legend-color.min15 { background: #ffc107; }
+.time-legend-color.min30 { background: #ff9800; }
+.time-legend-color.hour1 { background: #ff6f00; }
+.time-legend-color.hour2 { background: #ff3d00; }
+.time-legend-color.hour6 { background: #f44336; }
+.time-legend-color.hour12 { background: #e91e63; }
+.time-legend-color.hour24 { background: #c62828; }
+.time-legend-color.hour48 { background: #b71c1c; }
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {

@@ -172,8 +172,8 @@ function extractTimestampFromFilename(filename) {
   return 0;
 }
 
-// Helper function to list videos in a path
-async function listVideosInPath(cameraPath, datePath, token) {
+// Helper function to list videos in a path with camera availability checking
+async function listVideosInPath(cameraPath, datePath, token, cameraId = null) {
   try {
     const url = `${CCTV_CONFIG.baseUrl}/cgi-bin/filemanager/utilRequest.cgi`;
     const params = new URLSearchParams({
@@ -192,7 +192,15 @@ async function listVideosInPath(cameraPath, datePath, token) {
     console.log(`🔍 Checking path: ${cameraPath}/${datePath}/`);
     console.log(`📡 Request URL: ${url}?${params}`);
     
-    const response = await fetch(`${url}?${params}`);
+    const response = await fetch(`${url}?${params}`, {
+      timeout: 10000 // 10 second timeout per camera
+    });
+    
+    if (!response.ok) {
+      console.error(`❌ Camera ${cameraId || 'unknown'} HTTP error: ${response.status} ${response.statusText}`);
+      return { videos: [], cameraAvailable: false, error: `HTTP ${response.status}` };
+    }
+    
     const data = await response.json();
     
     console.log(`📊 Response for ${datePath}:`, {
@@ -208,7 +216,7 @@ async function listVideosInPath(cameraPath, datePath, token) {
     
     if (data.success === false) {
       console.log(`❌ Path ${datePath} failed (success=false)`);
-      return [];
+      return { videos: [], cameraAvailable: true, error: 'Path not found' };
     }
     
     // Check if folder has data - either has_datas is true OR there are actual files
@@ -216,7 +224,7 @@ async function listVideosInPath(cameraPath, datePath, token) {
     
     if (!hasData) {
       console.log(`⚠️  Path ${datePath} has no videos (success=${data.success}, has_datas=${data.has_datas}, fileCount=${data.datas?.length || 0})`);
-      return [];
+      return { videos: [], cameraAvailable: true, error: 'No videos in this time period' };
     }
 
     const videos = [];
@@ -239,10 +247,18 @@ async function listVideosInPath(cameraPath, datePath, token) {
     }
 
     console.log(`✅ Found ${videos.length} valid videos in ${datePath}`);
-    return videos.sort((a, b) => a.timestamp - b.timestamp);
+    return { 
+      videos: videos.sort((a, b) => a.timestamp - b.timestamp), 
+      cameraAvailable: true, 
+      error: null 
+    };
   } catch (error) {
-    console.error(`💥 Failed to list videos in path ${datePath}:`, error);
-    return [];
+    console.error(`💥 Camera ${cameraId || 'unknown'} failed to list videos in path ${datePath}:`, error);
+    return { 
+      videos: [], 
+      cameraAvailable: false, 
+      error: error.message || 'Camera connection failed' 
+    };
   }
 }
 
@@ -278,6 +294,13 @@ async function downloadAndCacheVideo(video, token, cacheFilename) {
   if (fs.existsSync(cachePath)) {
     console.log(`📦 Video already cached: ${cacheFilename}`);
     return true;
+  }
+
+  // Check cache size before downloading
+  const currentSize = await getDirectorySize(cacheDir);
+  if (currentSize > CACHE_CONFIG.cleanupThresholdBytes) {
+    console.log(`🧹 Cache size (${Math.round(currentSize / (1024 * 1024))}MB) over threshold, cleaning before download`);
+    await cleanupCache();
   }
   
   try {
@@ -431,6 +454,8 @@ app.get('/api/cctv/videos', async (req, res) => {
     console.log(`📹 Camera path: ${cameraPath}`);
     
     let allVideos = [];
+    let cameraAvailable = true;
+    let cameraError = null;
 
     // Try multiple hours around the target
     for (let hourOffset = -1; hourOffset <= 1; hourOffset++) {
@@ -446,11 +471,19 @@ app.get('/api/cctv/videos', async (req, res) => {
         const datePath = `${testDateStr}/${testHour}${folderSuffix}`;
         console.log(`📂 Trying ${folderSuffix ? 'D folder' : 'normal folder'}: ${datePath}`);
         
-        const videos = await listVideosInPath(cameraPath, datePath, token);
-        allVideos = allVideos.concat(videos);
+        const result = await listVideosInPath(cameraPath, datePath, token, cameraId);
         
-        if (videos.length > 0) {
-          console.log(`✅ Found ${videos.length} videos in ${datePath}, stopping search for this hour`);
+        // Track camera availability
+        if (!result.cameraAvailable) {
+          cameraAvailable = false;
+          cameraError = result.error;
+          console.log(`❌ Camera ${cameraId} unavailable: ${result.error}`);
+        }
+        
+        allVideos = allVideos.concat(result.videos);
+        
+        if (result.videos.length > 0) {
+          console.log(`✅ Found ${result.videos.length} videos in ${datePath}, stopping search for this hour`);
           break; // Stop trying D folder if normal folder has videos
         }
       }
@@ -460,6 +493,35 @@ app.get('/api/cctv/videos', async (req, res) => {
     const uniqueVideos = allVideos.filter((video, index, self) => 
       index === self.findIndex(v => v.filename === video.filename)
     ).sort((a, b) => a.timestamp - b.timestamp);
+
+    // Generate response in the required format
+    const videos = {};
+    const timestamps = {};
+
+    // Handle camera unavailable case
+    if (!cameraAvailable || uniqueVideos.length === 0) {
+      console.log(`❌ Camera ${cameraId} unavailable or no videos found, using fallback video`);
+      
+      // Provide fallback video for unavailable camera
+      videos['0'] = '/static/videos/videoerror.mp4';
+      timestamps['0'] = targetTimestamp;
+      
+      const response = [
+        videos,
+        0, // closestIndex
+        0, // offsetSeconds
+        cameraId,
+        timestamps,
+        {
+          cameraAvailable: false,
+          cameraError: cameraError || 'No videos found for this time period',
+          videoCount: 0
+        }
+      ];
+
+      console.log(`🔄 Fallback response sent for camera ${cameraId}: ${cameraError || 'No videos found'}`);
+      return res.json(response);
+    }
 
     // Find closest video to target timestamp
     let closestIndex = 0;
@@ -472,10 +534,6 @@ app.get('/api/cctv/videos', async (req, res) => {
         closestIndex = index;
       }
     });
-
-    // Generate response in the required format
-    const videos = {};
-    const timestamps = {};
 
     // Set up all video metadata immediately - NO DOWNLOADS
     for (let i = 0; i < uniqueVideos.length; i++) {
@@ -504,7 +562,12 @@ app.get('/api/cctv/videos', async (req, res) => {
       closestIndex,
       offsetSeconds,
       cameraId,
-      timestamps
+      timestamps,
+      {
+        cameraAvailable: cameraAvailable,
+        cameraError: cameraError,
+        videoCount: uniqueVideos.length
+      }
     ];
 
     console.log(`✅ Response sent immediately with closest video ready for playback`);
@@ -522,6 +585,116 @@ const videoMetadata = new LRUCache({
   ttl: 1000 * 60 * 60, // 1 hour
   updateAgeOnGet: true
 });
+
+// Cache management configuration
+const CACHE_CONFIG = {
+  maxSizeBytes: 1 * 1024 * 1024 * 1024, // 1GB limit
+  cleanupThresholdBytes: 0.8 * 1024 * 1024 * 1024, // Start cleanup at 800MB
+  checkIntervalMs: 5 * 60 * 1000, // Check every 5 minutes
+};
+
+// Get directory size in bytes
+async function getDirectorySize(dirPath) {
+  try {
+    const files = await fs.promises.readdir(dirPath);
+    let totalSize = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const stats = await fs.promises.stat(filePath);
+      if (stats.isFile()) {
+        totalSize += stats.size;
+      }
+    }
+    
+    return totalSize;
+  } catch (error) {
+    console.warn('⚠️ Error calculating directory size:', error.message);
+    return 0;
+  }
+}
+
+// Clean old cache files to stay under limit
+async function cleanupCache() {
+  const cacheDir = path.join(__dirname, 'static', 'cache', 'videos');
+  
+  try {
+    // Ensure cache directory exists
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    
+    const currentSize = await getDirectorySize(cacheDir);
+    const sizeMB = Math.round(currentSize / (1024 * 1024));
+    
+    console.log(`🗑️ Cache size check: ${sizeMB}MB / ${Math.round(CACHE_CONFIG.maxSizeBytes / (1024 * 1024))}MB`);
+    
+    if (currentSize <= CACHE_CONFIG.cleanupThresholdBytes) {
+      return; // Under threshold, no cleanup needed
+    }
+    
+    console.log(`🧹 Cache cleanup needed - current size: ${sizeMB}MB`);
+    
+    // Get all cache files with their stats
+    const files = await fs.promises.readdir(cacheDir);
+    const fileStats = [];
+    
+    for (const file of files) {
+      if (file.endsWith('.mp4')) {
+        const filePath = path.join(cacheDir, file);
+        try {
+          const stats = await fs.promises.stat(filePath);
+          fileStats.push({
+            name: file,
+            path: filePath,
+            size: stats.size,
+            mtime: stats.mtime,
+            age: Date.now() - stats.mtime.getTime()
+          });
+        } catch (error) {
+          console.warn(`⚠️ Error getting stats for ${file}:`, error.message);
+        }
+      }
+    }
+    
+    // Sort by age (oldest first)
+    fileStats.sort((a, b) => b.age - a.age);
+    
+    let cleanedSize = 0;
+    let filesRemoved = 0;
+    const targetSize = CACHE_CONFIG.maxSizeBytes * 0.7; // Clean down to 70% of limit
+    
+    for (const file of fileStats) {
+      if (currentSize - cleanedSize <= targetSize) {
+        break; // Reached target size
+      }
+      
+      try {
+        await fs.promises.unlink(file.path);
+        cleanedSize += file.size;
+        filesRemoved++;
+        
+        const ageDays = Math.round(file.age / (1000 * 60 * 60 * 24));
+        console.log(`🗑️ Removed: ${file.name} (${Math.round(file.size / (1024 * 1024))}MB, ${ageDays} days old)`);
+      } catch (error) {
+        console.warn(`⚠️ Error removing ${file.name}:`, error.message);
+      }
+    }
+    
+    const newSize = currentSize - cleanedSize;
+    const newSizeMB = Math.round(newSize / (1024 * 1024));
+    const cleanedMB = Math.round(cleanedSize / (1024 * 1024));
+    
+    console.log(`✅ Cache cleanup complete: removed ${filesRemoved} files (${cleanedMB}MB), new size: ${newSizeMB}MB`);
+    
+  } catch (error) {
+    console.error('❌ Cache cleanup failed:', error);
+  }
+}
+
+// Start periodic cache cleanup
+setInterval(cleanupCache, CACHE_CONFIG.checkIntervalMs);
+
+// Initial cleanup on server start
+setTimeout(cleanupCache, 10000); // Wait 10s after server start
 
 // Middleware to handle video file requests with progressive streaming
 app.get('/static/cache/videos/:filename', async (req, res) => {
@@ -729,8 +902,17 @@ if (!fs.existsSync(cacheDir)) {
   fs.mkdirSync(cacheDir, { recursive: true });
 }
 
+// Serve React build files
+app.use(express.static(path.join(__dirname, 'build')));
+
+// Handle React Router (serve index.html for all non-API routes)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`React app available at: http://localhost:${PORT}`);
 });
 
 module.exports = app;

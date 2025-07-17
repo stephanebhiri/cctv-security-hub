@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test des couleurs temporelles</title>
+    <link rel="stylesheet" href="./build/static/css/main.bc45a293.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 30px;
+        }
+        .test-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .test-table th, .test-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .test-table th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .time-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 Test du système de couleurs temporelles</h1>
+        
+        <table class="test-table items-table">
+            <thead>
+                <tr>
+                    <th>Temps écoulé</th>
+                    <th>Secondes</th>
+                    <th>Classe CSS</th>
+                    <th>Designation</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="item-clickable time-fresh">
+                    <td>< 1 minute</td>
+                    <td class="time-value">30</td>
+                    <td>time-fresh</td>
+                    <td>CAMERA-001</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-recent">
+                    <td>< 5 minutes</td>
+                    <td class="time-value">180</td>
+                    <td>time-recent</td>
+                    <td>CAMERA-002</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-5min">
+                    <td>< 15 minutes</td>
+                    <td class="time-value">600</td>
+                    <td>time-5min</td>
+                    <td>CAMERA-003</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-15min">
+                    <td>< 30 minutes</td>
+                    <td class="time-value">1200</td>
+                    <td>time-15min</td>
+                    <td>CAMERA-004</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-30min">
+                    <td>< 1 heure</td>
+                    <td class="time-value">2400</td>
+                    <td>time-30min</td>
+                    <td>CAMERA-005</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-1hour">
+                    <td>< 2 heures</td>
+                    <td class="time-value">5400</td>
+                    <td>time-1hour</td>
+                    <td>CAMERA-006</td>
+                    <td>Online</td>
+                </tr>
+                <tr class="item-clickable time-2hour">
+                    <td>< 6 heures</td>
+                    <td class="time-value">14400</td>
+                    <td>time-2hour</td>
+                    <td>CAMERA-007</td>
+                    <td>Offline</td>
+                </tr>
+                <tr class="item-clickable time-6hour">
+                    <td>< 12 heures</td>
+                    <td class="time-value">28800</td>
+                    <td>time-6hour</td>
+                    <td>CAMERA-008</td>
+                    <td>Offline</td>
+                </tr>
+                <tr class="item-clickable time-12hour">
+                    <td>< 24 heures</td>
+                    <td class="time-value">54000</td>
+                    <td>time-12hour</td>
+                    <td>CAMERA-009</td>
+                    <td>Offline</td>
+                </tr>
+                <tr class="item-clickable time-24hour">
+                    <td>< 48 heures</td>
+                    <td class="time-value">108000</td>
+                    <td>time-24hour</td>
+                    <td>CAMERA-010</td>
+                    <td>Offline</td>
+                </tr>
+                <tr class="item-clickable time-48hour">
+                    <td>< 1 semaine</td>
+                    <td class="time-value">432000</td>
+                    <td>time-48hour</td>
+                    <td>CAMERA-011</td>
+                    <td>Offline</td>
+                </tr>
+                <tr class="item-clickable time-old">
+                    <td>> 1 semaine</td>
+                    <td class="time-value">1209600</td>
+                    <td>time-old</td>
+                    <td>CAMERA-012</td>
+                    <td>Offline</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #667eea;">
+            <p><strong>Note:</strong> Les couleurs devraient passer du vert (données récentes) au rouge (données anciennes) de manière logarithmique. Chaque ligne doit avoir un arrière-plan coloré et une bordure gauche colorée.</p>
+        </div>
+    </div>
+</body>
+</html>

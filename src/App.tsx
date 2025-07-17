@@ -3,6 +3,7 @@ import { CCTVService } from './services/CCTVService';
 import MultiCameraView from './components/MultiCameraView';
 import ItemsSection from './components/ItemsSection';
 import { automationAPI } from './api/AutomationAPI';
+import './App.css';
 
 const App: React.FC = () => {
   const [selectedDateTime, setSelectedDateTime] = useState<string>('');
@@ -43,29 +44,7 @@ const App: React.FC = () => {
     console.log('🤖 CCTV Automation API ready - window.CCTV available');
   }, [loading, error, currentItemName, selectedDateTime]);
 
-  const handleSearch = async () => {
-    if (!selectedDateTime) {
-      setError('Please select a date and time');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setVideoSectionVisible(true);
-    setCurrentItemName('Manual Search');
-
-    try {
-      const timestamp = Math.floor(new Date(selectedDateTime).getTime() / 1000);
-      console.log('🚀 Starting multi-camera search for timestamp:', timestamp);
-      
-      // Multi-camera view will handle the loading itself
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to search videos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // handleSearch removed - modal launched from item clicks only
 
 
 
@@ -280,63 +259,21 @@ const App: React.FC = () => {
           onHealthCheck={handleHealthCheck}
         />
 
-        {/* CCTV Modal - Surveillance Style */}
+        {/* CCTV Modal - Clean Structure */}
         {videoSectionVisible && (
           <div className="cctv-modal">
             <div className="modal-content">
-              {/* Modal Header */}
-              <div className="modal-header">
-                <h2 className="modal-title">
-                  📹 {currentItemName}
-                </h2>
-                <button 
-                  onClick={closeVideoPlayer}
-                  className="modal-close"
-                >
-                  ✕ CLOSE
-                </button>
-              </div>
+              {/* Direct MultiCameraView with unified header */}
+              <MultiCameraView
+                targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
+                onError={(error) => setError(error)}
+                isSearching={loading}
+                itemName={currentItemName}
+                onClose={closeVideoPlayer}
+              />
               
-              {/* Modal Content */}
-              <div className="modal-body">
-                {/* Video Player - Multi-Camera Only */}
-                <div style={{marginBottom: '20px'}}>
-                  <MultiCameraView
-                    targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
-                    onError={(error) => setError(error)}
-                    isSearching={loading}
-                  />
-                </div>
-                
-                {/* Controls - Multi-Camera Only */}
-                <div className="controls-panel">
-                  <div className="controls-row">
-                    <input
-                      type="datetime-local"
-                      value={selectedDateTime}
-                      onChange={(e) => setSelectedDateTime(e.target.value)}
-                      className="control-input"
-                    />
-                    
-                    <button 
-                      onClick={handleSearch} 
-                      disabled={loading} 
-                      className="control-button primary"
-                    >
-                      {loading ? '⏳' : '🔍'} Rechercher
-                    </button>
-                    
-                    <span className="control-button mode-active">
-                      📺 Multi-Camera Mode
-                    </span>
-                  </div>
-                </div>
-                
-                
-                {/* Multi-Camera Info */}
-                <div className="metadata-panel">
-                  📺 Multi-Camera Surveillance Mode • 6 Cameras Synchronized
-                </div>
+              <div className="metadata-panel">
+                📺 6 Cameras Synchronized • Use ←→ keys to navigate • Limited to 10 clips range
               </div>
             </div>
           </div>

@@ -4,9 +4,11 @@ interface VideoPlayerProps {
   videoUrl: string | null;
   onError?: () => void;
   isSearching?: boolean;
+  cameraAvailable?: boolean;
+  cameraError?: string | null;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onError, isSearching }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onError, isSearching, cameraAvailable, cameraError }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,6 +69,42 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onError, isSearchin
   }
   
   console.log('🎥 VideoPlayer: Rendering video:', videoUrl);
+
+  // Handle camera unavailable case
+  if (cameraAvailable === false) {
+    return (
+      <div className="w-full aspect-video bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl border border-orange-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l2-2m0 0l2 2m-2-2v4" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-orange-900 mb-2">Caméra non disponible</h3>
+          <p className="text-sm text-orange-700 mb-4">
+            {cameraError || 'La caméra n\'est pas accessible pour le moment'}
+          </p>
+          <p className="text-xs text-orange-600 mb-4 bg-orange-100 px-3 py-2 rounded">
+            💡 Les autres caméras restent disponibles
+          </p>
+          {videoUrl && videoUrl.includes('videoerror.mp4') && (
+            <div className="mt-4">
+              <video
+                className="w-32 h-18 mx-auto rounded object-contain bg-black"
+                controls
+                muted
+                loop
+                autoPlay
+              >
+                <source src={videoUrl} type="video/mp4" />
+              </video>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (hasError) {
     return (

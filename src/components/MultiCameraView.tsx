@@ -6,6 +6,8 @@ interface MultiCameraViewProps {
   targetTimestamp: number;
   onError?: (error: string) => void;
   isSearching?: boolean;
+  itemName?: string;
+  onClose?: () => void;
 }
 
 interface CameraState {
@@ -14,6 +16,8 @@ interface CameraState {
     videos: { [key: string]: string };
     timestamps: { [key: string]: number };
     closestIndex: number;
+    cameraAvailable?: boolean;
+    cameraError?: string | null;
   } | null;
   loading: boolean;
   error: string | null;
@@ -22,7 +26,9 @@ interface CameraState {
 const MultiCameraView: React.FC<MultiCameraViewProps> = ({ 
   targetTimestamp, 
   onError,
-  isSearching 
+  isSearching,
+  itemName,
+  onClose
 }) => {
   const [cameras, setCameras] = useState<CameraState[]>([
     { id: 1, data: null, loading: false, error: null },
@@ -111,7 +117,9 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
           data: {
             videos: response.videos,
             timestamps: response.timestamps,
-            closestIndex: response.closestIndex
+            closestIndex: response.closestIndex,
+            cameraAvailable: response.cameraStatus?.cameraAvailable ?? true,
+            cameraError: response.cameraStatus?.cameraError ?? null
           },
           loading: false,
           error: null
@@ -192,28 +200,40 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   };
 
   const getCurrentPosition = () => {
-    const maxCamera = cameras.reduce((max, camera) => {
+    // Limited to 10 clips range (±5 from target)
+    const availableRange = Math.min(10, cameras.reduce((max, camera) => {
       if (!camera.data) return max;
       const videoEntries = getSortedVideoEntries(camera.id);
       return Math.max(max, videoEntries.length);
-    }, 0);
+    }, 0));
     
     const currentPosition = Math.max(0, Math.min(
-      cameras.find(c => c.data)?.data?.closestIndex || 0 + currentVideoOffset,
-      maxCamera - 1
+      5 + currentVideoOffset, // 5 is the center position (target)
+      availableRange - 1
     ));
     
-    return { current: currentPosition + 1, total: maxCamera };
+    return { current: currentPosition + 1, total: availableRange };
   };
 
   const handlePlayPause = async () => {
-    const videos = Object.values(videoElementsRef.current).filter(Boolean);
+    // Only get videos from available cameras
+    const availableVideos = Object.entries(videoElementsRef.current)
+      .filter(([cameraId, video]) => {
+        const camera = cameras.find(c => c.id === parseInt(cameraId));
+        const isAvailable = camera?.data?.cameraAvailable !== false;
+        const hasVideo = video && video.src && !video.src.includes('videoerror.mp4');
+        return isAvailable && hasVideo;
+      })
+      .map(([, video]) => video)
+      .filter(Boolean);
+    
+    console.log(`🎬 handlePlayPause: Found ${availableVideos.length} available videos out of ${Object.keys(videoElementsRef.current).length} total`);
     
     if (!isPlaying) {
       setIsPlaying(true);
       
       // Safari needs sequential playback with forced loading
-      for (const video of videos) {
+      for (const video of availableVideos) {
         if (video) {
           try {
             // Force load if not ready
@@ -230,12 +250,13 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             await new Promise(resolve => setTimeout(resolve, 150));
           } catch (err) {
             console.error('Play failed:', err);
+            // Continue with other videos even if one fails
           }
         }
       }
     } else {
       setIsPlaying(false);
-      videos.forEach(video => {
+      availableVideos.forEach(video => {
         if (video) {
           video.pause();
         }
@@ -248,11 +269,16 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     setCurrentVideoOffset(prev => prev + 1);
   }, []);
 
-  // Create video elements once
+  // Create video elements once - only for available cameras
   useEffect(() => {
     const videoElements = videoElementsRef.current;
     
     cameras.forEach(camera => {
+      // Skip creating video elements for unavailable cameras
+      if (camera.data?.cameraAvailable === false) {
+        return;
+      }
+      
       if (!videoElements[camera.id]) {
         const videoElement = document.createElement('video');
         videoElement.controls = true;
@@ -260,7 +286,8 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         videoElement.playsInline = true;
         videoElement.preload = 'metadata';
         videoElement.style.width = '100%';
-        videoElement.style.height = '200px';
+        videoElement.style.height = '100%';
+        videoElement.style.objectFit = 'cover';
         videoElement.addEventListener('ended', handleVideoEnded);
         
         // Auto-play detection - when video can play through
@@ -282,12 +309,17 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     };
   }, [cameras, handleVideoEnded]);
   
-  // Update video sources separately
+  // Update video sources separately - only for available cameras
   useEffect(() => {
     setVideosReadyCount(0); // Reset ready count when sources change
     autoPlayTriggered.current = false;
     
     cameras.forEach(camera => {
+      // Skip updating video sources for unavailable cameras
+      if (camera.data?.cameraAvailable === false) {
+        return;
+      }
+      
       const videoElement = videoElementsRef.current[camera.id];
       const videoUrl = getCurrentVideoUrl(camera.id);
       
@@ -302,9 +334,15 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     });
   }, [cameras, currentVideoOffset, getCurrentVideoUrl]);
 
-  // Auto-play when all videos are ready (Chrome mainly)
+  // Auto-play when all videos are ready (Chrome mainly) - only count available cameras
   useEffect(() => {
-    const validCamerasCount = cameras.filter(cam => cam.data && getCurrentVideoUrl(cam.id)).length;
+    const validCamerasCount = cameras.filter(cam => {
+      if (!cam.data || cam.data.cameraAvailable === false) {
+        return false;
+      }
+      const videoUrl = getCurrentVideoUrl(cam.id);
+      return videoUrl && !videoUrl.includes('videoerror.mp4');
+    }).length;
     
     if (videosReadyCount >= validCamerasCount && validCamerasCount > 0 && !autoPlayTriggered.current && !isPlaying) {
       console.log(`🎬 Auto-play: ${videosReadyCount}/${validCamerasCount} videos ready`);
@@ -359,9 +397,9 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     }, 100);
   }, [cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
 
-  // Helper function to check if we can navigate
+  // Helper function to check if we can navigate (limited to ±5 clips)
   const canGoToPrevious = useCallback(() => {
-    return cameras.some(camera => {
+    return currentVideoOffset > -5 && cameras.some(camera => {
       if (!camera.data) return false;
       const targetIndex = camera.data.closestIndex + currentVideoOffset - 1;
       return targetIndex >= 0;
@@ -369,7 +407,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   }, [cameras, currentVideoOffset]);
 
   const canGoToNext = useCallback(() => {
-    return cameras.some(camera => {
+    return currentVideoOffset < 5 && cameras.some(camera => {
       if (!camera.data) return false;
       const videoEntries = getSortedVideoEntries(camera.id);
       const targetIndex = camera.data.closestIndex + currentVideoOffset + 1;
@@ -377,29 +415,29 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     });
   }, [cameras, currentVideoOffset, getSortedVideoEntries]);
 
-  // Progress bar click navigation
+  // Progress bar click navigation (limited to ±5 clips)
   const handleProgressClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const progressWidth = rect.width;
     const clickPercent = clickX / progressWidth;
     
-    // Convert percentage to offset (-totalVideos/2 to +totalVideos/2)
-    const totalVideos = getTotalVideos();
-    const newOffset = Math.round((clickPercent - 0.5) * totalVideos);
+    // Convert percentage to offset (-5 to +5)
+    const newOffset = Math.round((clickPercent - 0.5) * 10); // 10 clips total range
+    const clampedOffset = Math.max(-5, Math.min(5, newOffset));
     
     // Check if this offset is valid
     const validOffset = cameras.some(camera => {
       if (!camera.data) return false;
       const videoEntries = getSortedVideoEntries(camera.id);
-      const targetIndex = camera.data.closestIndex + newOffset;
+      const targetIndex = camera.data.closestIndex + clampedOffset;
       return targetIndex >= 0 && targetIndex < videoEntries.length;
     });
     
     if (validOffset) {
-      setCurrentVideoOffset(newOffset);
+      setCurrentVideoOffset(clampedOffset);
     }
-  }, [cameras, getTotalVideos, getSortedVideoEntries]);
+  }, [cameras, getSortedVideoEntries]);
 
   // Progress bar drag navigation
   const [isDragging, setIsDragging] = useState(false);
@@ -419,18 +457,18 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       const progressWidth = rect.width;
       const clickPercent = Math.max(0, Math.min(1, clickX / progressWidth));
       
-      const totalVideos = getTotalVideos();
-      const newOffset = Math.round((clickPercent - 0.5) * totalVideos);
+      const newOffset = Math.round((clickPercent - 0.5) * 10); // 10 clips total range
+      const clampedOffset = Math.max(-5, Math.min(5, newOffset));
       
       const validOffset = cameras.some(camera => {
         if (!camera.data) return false;
         const videoEntries = getSortedVideoEntries(camera.id);
-        const targetIndex = camera.data.closestIndex + newOffset;
+        const targetIndex = camera.data.closestIndex + clampedOffset;
         return targetIndex >= 0 && targetIndex < videoEntries.length;
       });
       
       if (validOffset) {
-        setCurrentVideoOffset(newOffset);
+        setCurrentVideoOffset(clampedOffset);
       }
     };
 
@@ -481,32 +519,12 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       }
     };
 
-    const handleWheel = (event: WheelEvent) => {
-      // Only handle wheel events over the camera grid or controls
-      const target = event.target as HTMLElement;
-      if (target.closest('.camera-grid') || target.closest('.video-controls')) {
-        event.preventDefault();
-        
-        if (event.deltaY > 0) {
-          // Scroll down = next video
-          if (canGoToNext()) {
-            goToNext();
-          }
-        } else {
-          // Scroll up = previous video
-          if (canGoToPrevious()) {
-            goToPrevious();
-          }
-        }
-      }
-    };
+    // Mouse wheel navigation disabled per user request
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('wheel', handleWheel, { passive: false });
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('wheel', handleWheel);
     };
   }, [canGoToPrevious, canGoToNext, goToPrevious, goToNext, handlePlayPause]);
 
@@ -594,35 +612,35 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   }
 
   return (
-    <div className="surveillance-container">
-      <div className="cctv-window">
-        {/* Header */}
-        <div className="cctv-header">
-          <div className="cctv-info">
-            <div className="iconSituation">📹</div>
-            <div className="elementdata">
-              <div className="NomElement">Synchronisation Multi-Caméras</div>
-              <div className="status-line">
-                <span className="offset-display">
-                  Video: {getCurrentPosition().current}/{getCurrentPosition().total} • 
-                  Offset: {currentVideoOffset >= 0 ? '+' : ''}{currentVideoOffset} 
-                  {currentVideoOffset === 0 && ' (Target)'}
-                </span>
-                {cameras.some(c => c.data) && (
-                  <span style={{marginLeft: '10px', color: '#888'}}>
-                    {formatFullTimestamp(getCurrentTimestamp(1) || targetTimestamp)}
-                  </span>
-                )}
-              </div>
-            </div>
+    <>
+      {/* Unified Header */}
+      <div className="modal-header">
+        <div className="modal-title-section">
+          <h2 className="modal-title">
+            📹 {itemName || 'CCTV Surveillance'}
+          </h2>
+          <div className="sync-info">
+            <span className="offset-display">
+              Video: {getCurrentPosition().current}/{getCurrentPosition().total} • 
+              Offset: {currentVideoOffset >= 0 ? '+' : ''}{currentVideoOffset} 
+              {currentVideoOffset === 0 && ' (Target)'}
+            </span>
+            {cameras.some(c => c.data) && (
+              <span style={{marginLeft: '10px', color: '#888', fontSize: '0.9em'}}>
+                {formatFullTimestamp(getCurrentTimestamp(1) || targetTimestamp)}
+              </span>
+            )}
           </div>
-          <button 
-            onClick={loadAllCameras}
-            className="refresh-button"
-          >
-            🔄 Actualiser
-          </button>
         </div>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="modal-close"
+          >
+            ✕ CLOSE
+          </button>
+        )}
+      </div>
         
         {/* Controls */}
         <div className="video-controls">
@@ -665,7 +683,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             
             <div className="timeshift-info">
               <span className="keyboard-hint">
-                ⌨️ ←→ Navigate | Space Play/Pause | Home Target | 🖱️ Scroll/Click/Drag
+                ⌨️ ←→ Navigate | Space Play/Pause | Home Target | 🖱️ Click/Drag Progress
               </span>
             </div>
           </div>
@@ -680,11 +698,11 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             <div 
               className="progress-bar"
               style={{ 
-                width: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`
+                width: `${50 + (currentVideoOffset / 10) * 50}%`
               }}
             />
             <div className="progress-handle" style={{
-              left: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`
+              left: `${50 + (currentVideoOffset / 10) * 50}%`
             }} />
           </div>
         </div>
@@ -694,6 +712,34 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
           {cameras.map(camera => {
             const videoUrl = getCurrentVideoUrl(camera.id);
             
+            // Check if camera is unavailable
+            if (camera.data?.cameraAvailable === false) {
+              return (
+                <div key={camera.id} className="camera-slot unavailable">
+                  <div className="camera-label">CAM {camera.id}</div>
+                  <div className="camera-status" style={{color: '#ff8c00', fontSize: '0.9em'}}>
+                    NOT AVAILABLE
+                  </div>
+                  <div style={{color: '#ff8c00', fontSize: '0.7em', textAlign: 'center', marginTop: '8px'}}>
+                    {camera.data?.cameraError || 'Camera offline'}
+                  </div>
+                  {videoUrl && videoUrl.includes('videoerror.mp4') && (
+                    <div style={{marginTop: '8px'}}>
+                      <video 
+                        style={{width: '100%', height: '80px', borderRadius: '4px'}}
+                        controls
+                        muted
+                        loop
+                        autoPlay
+                      >
+                        <source src={videoUrl} type="video/mp4" />
+                      </video>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             if (camera.loading) {
               return (
                 <div key={camera.id} className="camera-slot loading">
@@ -730,8 +776,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             return <VideoContainer key={camera.id} cameraId={camera.id} />;
           })}
         </div>
-      </div>
-    </div>
+    </>
   );
 };
 

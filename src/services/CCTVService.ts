@@ -11,6 +11,11 @@ export interface CCTVResponse {
   offsetSeconds: number;
   cameraId: number;
   timestamps: { [key: string]: number };
+  cameraStatus?: {
+    cameraAvailable: boolean;
+    cameraError: string | null;
+    videoCount: number;
+  };
 }
 
 export class CCTVService {
@@ -60,7 +65,8 @@ export class CCTVService {
         closestIndex: data[1],
         offsetSeconds: data[2],
         cameraId: data[3],
-        timestamps: data[4]
+        timestamps: data[4],
+        cameraStatus: data[5] || { cameraAvailable: true, cameraError: null, videoCount: Object.keys(data[0]).length }
       };
     } catch (error) {
       clearTimeout(timeoutId);
