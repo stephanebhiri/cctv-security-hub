@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CCTVService } from '../services/CCTVService';
+import '../styles/surveillance.css';
 
 interface MultiCameraViewProps {
   targetTimestamp: number;
