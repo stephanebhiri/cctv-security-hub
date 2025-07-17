@@ -6,6 +6,7 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 const { DOMParser } = require('xmldom');
 const mysql = require('mysql2/promise');
+const { LRUCache } = require('lru-cache');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -514,8 +515,13 @@ app.get('/api/cctv/videos', async (req, res) => {
   }
 });
 
-// Store video metadata for on-demand downloads
-const videoMetadata = new Map();
+// Store video metadata for on-demand downloads with LRU cache
+// Max 1000 entries, TTL of 1 hour to prevent memory bloat
+const videoMetadata = new LRUCache({
+  max: 1000,
+  ttl: 1000 * 60 * 60, // 1 hour
+  updateAgeOnGet: true
+});
 
 // Middleware to handle video file requests with progressive streaming
 app.get('/static/cache/videos/:filename', async (req, res) => {
@@ -635,6 +641,78 @@ app.delete('/api/cache', (req, res) => {
       success: false,
       message: 'Failed to erase cache',
       error: error.message
+    });
+  }
+});
+
+// Video preload endpoint
+app.post('/api/cache/preload', async (req, res) => {
+  const { videoPath } = req.body;
+  
+  if (!videoPath) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Missing videoPath parameter' 
+    });
+  }
+
+  try {
+    // Validate that the path looks like a CCTV video path
+    if (!videoPath.includes('/CCTV/') || !videoPath.includes('Regular')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid video path format' 
+      });
+    }
+
+    const fullUrl = `${CCTV_CONFIG.baseUrl}${videoPath}`;
+    console.log(`🔄 Preloading video: ${fullUrl}`);
+    
+    // Get fresh auth token if needed
+    if (!authToken || Date.now() >= tokenExpiry) {
+      try {
+        await authenticate();
+      } catch (error) {
+        return res.status(500).json({ 
+          success: false, 
+          error: 'CCTV authentication failed',
+          details: error.message
+        });
+      }
+    }
+
+    // Make HEAD request to check if video exists and warm up the connection
+    const response = await fetch(`${fullUrl}?authSid=${authToken}`, {
+      method: 'HEAD',
+      timeout: 5000
+    });
+
+    if (response.ok) {
+      const contentLength = response.headers.get('content-length');
+      console.log(`✅ Video preloaded successfully: ${videoPath} (${contentLength} bytes)`);
+      
+      res.json({ 
+        success: true, 
+        videoPath,
+        size: contentLength ? parseInt(contentLength) : null,
+        cached: true,
+        message: 'Video preloaded successfully'
+      });
+    } else {
+      console.warn(`⚠️  Video not found: ${videoPath} (HTTP ${response.status})`);
+      res.status(404).json({ 
+        success: false, 
+        error: `Video not found on CCTV server (HTTP ${response.status})`,
+        videoPath 
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Preload error for ${videoPath}:`, error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to preload video',
+      details: error.message,
+      videoPath 
     });
   }
 });

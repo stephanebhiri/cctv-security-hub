@@ -37,6 +37,47 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   
   const cctvService = useRef(new CCTVService()).current;
 
+  // Preload video function
+  const preloadVideo = useCallback(async (videoUrl: string) => {
+    if (!videoUrl) return;
+    
+    try {
+      // Skip preloading for URLs that are already our local cache
+      if (videoUrl.includes('/static/cache/videos/')) {
+        console.log('🚫 Skipping preload for cached URL:', videoUrl);
+        return;
+      }
+      
+      // Validate URL before creating URL object
+      if (!videoUrl.startsWith('http') && !videoUrl.startsWith('/')) {
+        console.warn('⚠️ Invalid video URL format:', videoUrl);
+        return;
+      }
+      
+      // Extract path from full URL
+      const url = new URL(videoUrl, window.location.origin);
+      const videoPath = url.pathname;
+      
+      console.log('🔄 Preloading video:', videoPath);
+      
+      const response = await fetch('/api/cache/preload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoPath })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Video preloaded successfully:', result.videoPath);
+      } else {
+        console.warn('⚠️ Video preload failed:', result.error);
+      }
+    } catch (error) {
+      console.warn('❌ Preload request failed:', error);
+    }
+  }, []);
+
   const loadAllCameras = useCallback(async () => {
     setCameras(prev => prev.map(cam => ({ ...cam, loading: true, error: null })));
     
@@ -44,6 +85,22 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     const loadPromises = cameraIds.map(async (cameraId) => {
       try {
         const response = await cctvService.getVideos(targetTimestamp, cameraId);
+        
+        // Preload the target video (closest to timestamp) immediately
+        if (response.videos && response.closestIndex !== undefined) {
+          const videoEntries = Object.entries(response.videos).sort((a, b) => 
+            response.timestamps[a[0]] - response.timestamps[b[0]]
+          );
+          const targetVideoUrl = videoEntries[response.closestIndex]?.[1];
+          
+          if (targetVideoUrl) {
+            // Fire and forget - don't wait for preload to complete
+            preloadVideo(targetVideoUrl).catch(() => {
+              // Silent fail - preload is optimization, not critical
+            });
+          }
+        }
+        
         return {
           id: cameraId,
           data: {
@@ -68,7 +125,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
 
     const results = await Promise.all(loadPromises);
     setCameras(results);
-  }, [targetTimestamp, cctvService, onError]);
+  }, [targetTimestamp, cctvService, onError, preloadVideo]);
 
   useEffect(() => {
     loadAllCameras();
@@ -125,16 +182,24 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
     const videos = Object.values(videoElementsRef.current).filter(Boolean);
     
     if (!isPlaying) {
       setIsPlaying(true);
-      videos.forEach(video => {
+      
+      // Sequential playback for Safari compatibility
+      for (const video of videos) {
         if (video && video.readyState >= 2) {
-          video.play().catch(err => console.error('Play failed:', err));
+          try {
+            await video.play();
+            // Small delay to prevent Safari from rejecting concurrent plays
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (err) {
+            console.error('Play failed:', err);
+          }
         }
-      });
+      }
     } else {
       setIsPlaying(false);
       videos.forEach(video => {
