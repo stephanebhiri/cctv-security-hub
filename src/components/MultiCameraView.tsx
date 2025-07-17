@@ -347,60 +347,44 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     }, [cameraId]);
     
     return (
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-              </svg>
-            </div>
-            <span className="font-medium text-gray-900">Camera {cameraId}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            {camera?.loading && (
-              <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-              </div>
-            )}
-            {camera?.error && (
-              <div className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="camera-slot">
+        <div className="camera-label">CAM {cameraId}</div>
         
-        <div className="aspect-video bg-gray-100 relative" ref={containerRef}>
+        <div ref={containerRef}>
           {!camera?.data && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-                  </svg>
-                </div>
-                <p className="text-sm text-gray-500">En attente...</p>
-              </div>
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              color: '#666'
+            }}>
+              <div>📹</div>
+              <div style={{fontSize: '0.8em', marginTop: '5px'}}>En attente...</div>
             </div>
           )}
         </div>
         
         {camera?.data && (
-          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {getCurrentTimestamp(cameraId) 
-                  ? formatTimestamp(getCurrentTimestamp(cameraId)!) 
-                  : 'No timestamp'
-                }
-              </span>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-gray-500">Live</span>
-              </div>
-            </div>
+          <div className="camera-status live">
+            {getCurrentTimestamp(cameraId) 
+              ? formatTimestamp(getCurrentTimestamp(cameraId)!) 
+              : 'LIVE'
+            }
           </div>
+        )}
+        
+        {camera?.loading && (
+          <div className="camera-status">
+            <div className="loading-spinner"></div>
+            LOADING
+          </div>
+        )}
+        
+        {camera?.error && (
+          <div className="camera-status error">ERROR</div>
         )}
       </div>
     );
@@ -408,24 +392,17 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
 
   if (isSearching) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl">
-        <div className="relative mb-6">
-          <div className="w-16 h-16 bg-brand-500 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-white animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-            </svg>
-          </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-          </div>
+      <div className="search-container">
+        <div className="search-icon">
+          <div className="loading-spinner"></div>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Chargement des 6 caméras...</h3>
-        <p className="text-gray-600 text-center max-w-md">
+        <h3 className="search-title">Chargement des 6 caméras...</h3>
+        <p className="search-subtitle">
           Connexion aux flux vidéo en cours • Synchronisation multi-caméras
         </p>
-        <div className="mt-4 flex space-x-1">
+        <div className="search-dots">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="w-2 h-2 bg-brand-500 rounded-full animate-pulse" style={{animationDelay: `${i * 0.1}s`}}></div>
+            <div key={i} className="search-dot" style={{animationDelay: `${i * 0.1}s`}}></div>
           ))}
         </div>
       </div>
@@ -433,192 +410,118 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6">
-      {/* Controls Header */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-brand-50 to-accent-50 px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Synchronisation Multi-Caméras</h3>
-                <p className="text-sm text-gray-600">
+    <div className="surveillance-container">
+      <div className="cctv-window">
+        {/* Header */}
+        <div className="cctv-header">
+          <div className="cctv-info">
+            <div className="iconSituation">📹</div>
+            <div className="elementdata">
+              <div className="NomElement">Synchronisation Multi-Caméras</div>
+              <div className="status-line">
+                <span className="offset-display">
                   Offset: {currentVideoOffset >= 0 ? '+' : ''}{currentVideoOffset} 
                   {currentVideoOffset === 0 && ' (Target)'}
-                </p>
+                </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={loadAllCameras}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center space-x-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>Actualiser</span>
-              </button>
-            </div>
           </div>
+          <button 
+            onClick={loadAllCameras}
+            className="refresh-button"
+          >
+            🔄 Actualiser
+          </button>
         </div>
         
-        <div className="p-6">
-          <div className="flex flex-wrap items-center gap-3">
+        {/* Controls */}
+        <div className="video-controls">
+          <div className="controls-row">
             <button 
               onClick={goToPrevious}
               disabled={!canGoToPrevious()}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:cursor-not-allowed"
+              className="control-button"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" />
-              </svg>
-              <span>Précédent</span>
+              ⏮️ Précédent
             </button>
             
             <button 
               onClick={handlePlayPause}
-              className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+              className="control-button play"
             >
-              {isPlaying ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V17M6 10h2.586a1 1 0 00.707-.293l4.414-4.414A1 1 0 0014 5h2m-5 5v2a4 4 0 008 0v-2m-8 0V7a2 2 0 012-2h4a2 2 0 012 2v3m0 0V7a2 2 0 012-2h4a2 2 0 012 2v3" />
-                </svg>
-              )}
-              <span>{isPlaying ? 'Pause' : 'Play'} Toutes</span>
+              {isPlaying ? '⏸️ Pause' : '▶️ Play'} Toutes
             </button>
             
             <button 
               onClick={goToNext}
               disabled={!canGoToNext()}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:cursor-not-allowed"
+              className="control-button"
             >
-              <span>Suivant</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z" />
-              </svg>
+              Suivant ⏭️
             </button>
             
             {currentVideoOffset !== 0 && (
               <button 
                 onClick={() => setCurrentVideoOffset(0)}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                className="control-button target"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                </svg>
-                <span>Retour Target</span>
+                🎯 Retour Target
               </button>
             )}
           </div>
           
           {/* Progress Bar */}
-          <div className="mt-4 bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div className="progress-container">
             <div 
-              className="h-full bg-gradient-to-r from-brand-500 to-accent-500 transition-all duration-300"
+              className="progress-bar"
               style={{ 
-                width: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`,
-                minWidth: '2px'
+                width: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`
               }}
             />
           </div>
         </div>
-      </div>
 
-      {/* Camera Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cameras.map(camera => {
-          const videoUrl = getCurrentVideoUrl(camera.id);
-          
-          if (camera.loading) {
-            return (
-              <div key={camera.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    </div>
-                    <span className="font-medium text-gray-900">Camera {camera.id}</span>
+        {/* Camera Grid */}
+        <div className="camera-grid">
+          {cameras.map(camera => {
+            const videoUrl = getCurrentVideoUrl(camera.id);
+            
+            if (camera.loading) {
+              return (
+                <div key={camera.id} className="camera-slot loading">
+                  <div className="camera-label">CAM {camera.id}</div>
+                  <div className="camera-status">
+                    <div className="loading-spinner"></div>
+                    LOADING...
                   </div>
                 </div>
-                <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-6 h-6 text-yellow-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-gray-600">Chargement...</p>
+              );
+            }
+            
+            if (camera.error) {
+              return (
+                <div key={camera.id} className="camera-slot error">
+                  <div className="camera-label">CAM {camera.id}</div>
+                  <div className="camera-status error">ERROR</div>
+                  <div style={{color: '#ff4444', fontSize: '0.8em', textAlign: 'center'}}>
+                    {camera.error}
                   </div>
                 </div>
-              </div>
-            );
-          }
-          
-          if (camera.error) {
-            return (
-              <div key={camera.id} className="bg-white rounded-xl shadow-lg border border-red-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-red-50 to-red-100 px-4 py-3 border-b border-red-200">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
-                    <span className="font-medium text-gray-900">Camera {camera.id}</span>
-                  </div>
+              );
+            }
+            
+            if (!videoUrl) {
+              return (
+                <div key={camera.id} className="camera-slot">
+                  <div className="camera-label">CAM {camera.id}</div>
+                  <div className="camera-status">NO VIDEO</div>
                 </div>
-                <div className="aspect-video bg-red-50 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-red-600 font-medium">Erreur</p>
-                    <p className="text-xs text-red-500 mt-1 max-w-32 truncate">{camera.error}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          
-          if (!videoUrl) {
-            return (
-              <div key={camera.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gray-400 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-                      </svg>
-                    </div>
-                    <span className="font-medium text-gray-900">Camera {camera.id}</span>
-                  </div>
-                </div>
-                <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-                      </svg>
-                    </div>
-                    <p className="text-sm text-gray-600">Pas de vidéo</p>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          
-          return <VideoContainer key={camera.id} cameraId={camera.id} />;
-        })}
+              );
+            }
+            
+            return <VideoContainer key={camera.id} cameraId={camera.id} />;
+          })}
+        </div>
       </div>
     </div>
   );
