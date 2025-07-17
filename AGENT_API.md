@@ -91,6 +91,27 @@ const hourAgo = now - 3600;
 const recentItems = api.getItemsByTimeRange(hourAgo, now);
 ```
 
+### `getCurrentVideo(): string | null`
+Returns the current video URL.
+
+```javascript
+const videoUrl = api.getCurrentVideo();
+console.log('Current video:', videoUrl);
+```
+
+### `getCurrentVideoInfo(): VideoInfo | null`
+Returns detailed video information including the item and camera.
+
+```javascript
+const videoInfo = api.getCurrentVideoInfo();
+if (videoInfo) {
+  console.log('URL:', videoInfo.url);
+  console.log('Item:', videoInfo.item.designation);
+  console.log('Camera:', videoInfo.camera);
+  console.log('Timestamp:', new Date(videoInfo.timestamp * 1000));
+}
+```
+
 ## Events
 
 ### `item-selected`
@@ -217,6 +238,17 @@ interface CCTVState {
   currentVideo: string | null;
   error: string | null;
   lastRefresh: number;
+  selectedCamera?: number;
+}
+```
+
+### VideoInfo
+```typescript
+interface VideoInfo {
+  url: string;            // Video URL
+  item: CCTVItem;         // Associated item
+  camera: number;         // Camera number (1-6)
+  timestamp: number;      // Unix timestamp
 }
 ```
 

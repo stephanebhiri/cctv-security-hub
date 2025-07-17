@@ -37,6 +37,7 @@ const App: React.FC = () => {
       isLoading: loading,
       currentVideo: currentVideo,
       error: error,
+      selectedCamera: selectedCamera,
       selectedItem: currentItemName ? {
         id: Date.now(), // We don't have the actual item here, but this is for the selected state
         epc: '',
@@ -47,7 +48,7 @@ const App: React.FC = () => {
     });
 
     console.log('🤖 CCTV Automation API ready - window.CCTV available');
-  }, [loading, currentVideo, error, currentItemName, selectedDateTime]);
+  }, [loading, currentVideo, error, currentItemName, selectedDateTime, selectedCamera]);
 
   const handleSearch = async () => {
     if (!selectedDateTime) {

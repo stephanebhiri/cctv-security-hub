@@ -21,6 +21,14 @@ export interface CCTVState {
   currentVideo: string | null;
   error: string | null;
   lastRefresh: number;
+  selectedCamera?: number;
+}
+
+export interface VideoInfo {
+  url: string;
+  item: CCTVItem;
+  camera: number;
+  timestamp: number;
 }
 
 export interface CCTVEvents {
@@ -145,6 +153,22 @@ class AutomationAPI extends EventTarget {
    */
   getCurrentVideo(): string | null {
     return this.state.currentVideo;
+  }
+
+  /**
+   * Get detailed video information including item and camera
+   */
+  getCurrentVideoInfo(): VideoInfo | null {
+    if (!this.state.currentVideo || !this.state.selectedItem) {
+      return null;
+    }
+
+    return {
+      url: this.state.currentVideo,
+      item: this.state.selectedItem,
+      camera: this.state.selectedCamera || 1, // Default to camera 1 if not set
+      timestamp: this.state.selectedItem.timestamp
+    };
   }
 
   /**
