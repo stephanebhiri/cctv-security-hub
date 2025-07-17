@@ -255,125 +255,76 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Modern Header */}
-      <header className="relative overflow-hidden bg-gradient-to-r from-brand-600 via-brand-700 to-accent-600 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 opacity-30"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative">
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-                  </svg>
-                </div>
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-              CCTV Security Hub
-            </h1>
-            <p className="text-xl md:text-2xl text-blue-100 font-light max-w-2xl mx-auto">
-              Surveillance intelligente en temps réel • Analyse vidéo avancée
-            </p>
-          </div>
+    <div className="app-container">
+      {/* Surveillance Header */}
+      <header className="app-header">
+        <div>
+          <h1 className="app-title">📹 CCTV SECURITY HUB</h1>
+          <p className="app-subtitle">SURVEILLANCE SYSTEM • REAL-TIME MONITORING</p>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="main-content">
         {/* Error Alert */}
         {error && (
-          <div className="mb-8 animate-fade-in">
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg shadow-sm">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700 font-medium">Erreur: {error}</p>
-                </div>
-                <div className="ml-auto">
-                  <button 
-                    onClick={() => setError(null)}
-                    className="text-red-400 hover:text-red-600 transition-colors"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div className="error-alert">
+            <button 
+              onClick={() => setError(null)}
+              className="error-close"
+            >
+              ✕
+            </button>
+            <strong>❌ ERREUR:</strong> {error}
           </div>
         )}
 
         {/* Developer Tools */}
-        <div className="mb-8 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"/>
-                </svg>
-                Outils de développement
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <button 
-                  onClick={handleTestSlowResponse}
-                  disabled={loading}
-                  className="flex items-center justify-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="mr-2">🐌</span>
-                  Test Slow (6s)
-                </button>
-                <button 
-                  onClick={handleTest404Response}
-                  disabled={loading}
-                  className="flex items-center justify-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="mr-2">🚫</span>
-                  Test 404
-                </button>
-                <button 
-                  onClick={handleTestRapidClicks}
-                  disabled={loading}
-                  className="flex items-center justify-center px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="mr-2">🚀</span>
-                  Test Rapid
-                </button>
-                <button 
-                  onClick={handleHealthCheck}
-                  disabled={loading}
-                  className="flex items-center justify-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="mr-2">❤️</span>
-                  Health Check
-                </button>
-                <button 
-                  onClick={handleEraseCache}
-                  disabled={loading}
-                  className="flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="mr-2">🗑️</span>
-                  Erase Cache
-                </button>
-              </div>
-              {loading && loadingMessage && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700 font-medium">{loadingMessage}</p>
-                </div>
-              )}
-            </div>
+        <div className="dev-tools">
+          <div className="dev-tools-header">
+            🛠️ DEVELOPER TOOLS
           </div>
+          <div className="dev-tools-grid">
+            <button 
+              onClick={handleTestSlowResponse}
+              disabled={loading}
+              className="dev-button test-slow"
+            >
+              🐌 Test Slow (6s)
+            </button>
+            <button 
+              onClick={handleTest404Response}
+              disabled={loading}
+              className="dev-button test-404"
+            >
+              🚫 Test 404
+            </button>
+            <button 
+              onClick={handleTestRapidClicks}
+              disabled={loading}
+              className="dev-button test-rapid"
+            >
+              🚀 Test Rapid
+            </button>
+            <button 
+              onClick={handleHealthCheck}
+              disabled={loading}
+              className="dev-button health"
+            >
+              ❤️ Health Check
+            </button>
+            <button 
+              onClick={handleEraseCache}
+              disabled={loading}
+              className="dev-button cache"
+            >
+              🗑️ Erase Cache
+            </button>
+          </div>
+          {loading && loadingMessage && (
+            <div className="loading-message">
+              {loadingMessage}
+            </div>
+          )}
         </div>
 
         {/* Items Table - Main Content */}
@@ -382,39 +333,27 @@ const App: React.FC = () => {
           onHealthCheck={handleHealthCheck}
         />
 
-        {/* CCTV Modal - Ultra Modern */}
+        {/* CCTV Modal - Surveillance Style */}
         {videoSectionVisible && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-7xl max-h-[90vh] w-full overflow-hidden animate-slide-up">
+          <div className="cctv-modal">
+            <div className="modal-content">
               {/* Modal Header */}
-              <div className="relative bg-gradient-to-r from-brand-600 via-brand-700 to-accent-600 text-white p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 2v-7l-4 2z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold">{currentItemName}</h2>
-                      <p className="text-blue-100 text-sm font-light">Analyse vidéo en temps réel</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={closeVideoPlayer}
-                    className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors"
-                  >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+              <div className="modal-header">
+                <h2 className="modal-title">
+                  📹 {currentItemName}
+                </h2>
+                <button 
+                  onClick={closeVideoPlayer}
+                  className="modal-close"
+                >
+                  ✕ CLOSE
+                </button>
               </div>
               
               {/* Modal Content */}
-              <div className="p-6 max-h-[calc(90vh-100px)] overflow-y-auto">
+              <div className="modal-body">
                 {/* Video Player */}
-                <div className="mb-6">
+                <div style={{marginBottom: '20px'}}>
                   {useMultiCamera ? (
                     <MultiCameraView
                       targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
@@ -439,12 +378,12 @@ const App: React.FC = () => {
                 </div>
                 
                 {/* Controls */}
-                <div className="bg-gray-50 rounded-2xl p-4 mb-6">
-                  <div className="flex flex-wrap gap-4 items-center">
+                <div className="controls-panel">
+                  <div className="controls-row">
                     <select 
                       value={selectedCamera} 
                       onChange={(e) => setSelectedCamera(parseInt(e.target.value))}
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus-ring text-sm font-medium"
+                      className="control-input"
                     >
                       {[1, 2, 3, 4, 5, 6].map(num => (
                         <option key={num} value={num}>📷 Camera {num}</option>
@@ -455,34 +394,20 @@ const App: React.FC = () => {
                       type="datetime-local"
                       value={selectedDateTime}
                       onChange={(e) => setSelectedDateTime(e.target.value)}
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus-ring text-sm"
+                      className="control-input"
                     />
                     
                     <button 
                       onClick={handleSearch} 
                       disabled={loading} 
-                      className="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      className="control-button primary"
                     >
-                      {loading ? (
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      )}
-                      Rechercher
+                      {loading ? '⏳' : '🔍'} Rechercher
                     </button>
                     
                     <button 
                       onClick={() => setUseMultiCamera(!useMultiCamera)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        useMultiCamera 
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`control-button ${useMultiCamera ? 'mode-active' : 'mode-inactive'}`}
                     >
                       {useMultiCamera ? '🎥 Single' : '📺 Multi'}
                     </button>
@@ -490,11 +415,7 @@ const App: React.FC = () => {
                     {!useMultiCamera && (
                       <button 
                         onClick={() => setUseContinuousPlayer(!useContinuousPlayer)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          useContinuousPlayer 
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`control-button ${useContinuousPlayer ? 'mode-active' : 'mode-inactive'}`}
                       >
                         {useContinuousPlayer ? '📺 Continu' : '🎬 Simple'}
                       </button>
@@ -505,10 +426,8 @@ const App: React.FC = () => {
                 
                 {/* Metadata */}
                 {videoData && (
-                  <div className="bg-blue-50 rounded-2xl p-4 text-center">
-                    <p className="text-sm text-blue-700 font-medium">
-                      📊 Camera {videoData.cameraId} • {Object.keys(videoData.videos).length} vidéos • {videoData.offsetSeconds}s offset
-                    </p>
+                  <div className="metadata-panel">
+                    📊 Camera {videoData.cameraId} • {Object.keys(videoData.videos).length} vidéos • {videoData.offsetSeconds}s offset
                   </div>
                 )}
               </div>
