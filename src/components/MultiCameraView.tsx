@@ -187,6 +187,25 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
 
+  const formatFullTimestamp = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleString('fr-FR');
+  };
+
+  const getCurrentPosition = () => {
+    const maxCamera = cameras.reduce((max, camera) => {
+      if (!camera.data) return max;
+      const videoEntries = getSortedVideoEntries(camera.id);
+      return Math.max(max, videoEntries.length);
+    }, 0);
+    
+    const currentPosition = Math.max(0, Math.min(
+      cameras.find(c => c.data)?.data?.closestIndex || 0 + currentVideoOffset,
+      maxCamera - 1
+    ));
+    
+    return { current: currentPosition + 1, total: maxCamera };
+  };
+
   const handlePlayPause = async () => {
     const videos = Object.values(videoElementsRef.current).filter(Boolean);
     
@@ -301,12 +320,44 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   const goToPrevious = useCallback(() => {
     // Move to previous video (negative offset allows going before target)
     setCurrentVideoOffset(prev => prev - 1);
-  }, []);
+    
+    // Preload next previous video for smooth navigation
+    setTimeout(() => {
+      cameras.forEach(camera => {
+        if (camera.data) {
+          const videoEntries = getSortedVideoEntries(camera.id);
+          const nextIndex = camera.data.closestIndex + currentVideoOffset - 2;
+          if (nextIndex >= 0 && nextIndex < videoEntries.length) {
+            const nextVideoUrl = videoEntries[nextIndex]?.[1];
+            if (nextVideoUrl) {
+              preloadVideo(nextVideoUrl).catch(() => {});
+            }
+          }
+        }
+      });
+    }, 100);
+  }, [cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
 
   const goToNext = useCallback(() => {
     // Move to next video (positive offset)
     setCurrentVideoOffset(prev => prev + 1);
-  }, []);
+    
+    // Preload next video for smooth navigation
+    setTimeout(() => {
+      cameras.forEach(camera => {
+        if (camera.data) {
+          const videoEntries = getSortedVideoEntries(camera.id);
+          const nextIndex = camera.data.closestIndex + currentVideoOffset + 2;
+          if (nextIndex < videoEntries.length) {
+            const nextVideoUrl = videoEntries[nextIndex]?.[1];
+            if (nextVideoUrl) {
+              preloadVideo(nextVideoUrl).catch(() => {});
+            }
+          }
+        }
+      });
+    }, 100);
+  }, [cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
 
   // Helper function to check if we can navigate
   const canGoToPrevious = useCallback(() => {
@@ -325,6 +376,42 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       return targetIndex < videoEntries.length;
     });
   }, [cameras, currentVideoOffset, getSortedVideoEntries]);
+
+  // Keyboard navigation for timeshift
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle if not in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (canGoToPrevious()) {
+            goToPrevious();
+          }
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (canGoToNext()) {
+            goToNext();
+          }
+          break;
+        case ' ':
+          event.preventDefault();
+          handlePlayPause();
+          break;
+        case 'Home':
+          event.preventDefault();
+          setCurrentVideoOffset(0);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canGoToPrevious, canGoToNext, goToPrevious, goToNext, handlePlayPause]);
 
   // Video container component
   const VideoContainer: React.FC<{ cameraId: number }> = ({ cameraId }) => {
@@ -420,9 +507,15 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
               <div className="NomElement">Synchronisation Multi-Caméras</div>
               <div className="status-line">
                 <span className="offset-display">
+                  Video: {getCurrentPosition().current}/{getCurrentPosition().total} • 
                   Offset: {currentVideoOffset >= 0 ? '+' : ''}{currentVideoOffset} 
                   {currentVideoOffset === 0 && ' (Target)'}
                 </span>
+                {cameras.some(c => c.data) && (
+                  <span style={{marginLeft: '10px', color: '#888'}}>
+                    {formatFullTimestamp(getCurrentTimestamp(1) || targetTimestamp)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -441,6 +534,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
               onClick={goToPrevious}
               disabled={!canGoToPrevious()}
               className="control-button"
+              title="Précédent (Flèche gauche)"
             >
               ⏮️ Précédent
             </button>
@@ -448,6 +542,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             <button 
               onClick={handlePlayPause}
               className="control-button play"
+              title="Play/Pause (Barre d'espace)"
             >
               {isPlaying ? '⏸️ Pause' : '▶️ Play'} Toutes
             </button>
@@ -456,6 +551,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
               onClick={goToNext}
               disabled={!canGoToNext()}
               className="control-button"
+              title="Suivant (Flèche droite)"
             >
               Suivant ⏭️
             </button>
@@ -464,10 +560,17 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
               <button 
                 onClick={() => setCurrentVideoOffset(0)}
                 className="control-button target"
+                title="Retour à la position cible (Home)"
               >
                 🎯 Retour Target
               </button>
             )}
+            
+            <div className="timeshift-info">
+              <span className="keyboard-hint">
+                ⌨️ ←→ Navigate | Space Play/Pause | Home Target
+              </span>
+            </div>
           </div>
           
           {/* Progress Bar */}
