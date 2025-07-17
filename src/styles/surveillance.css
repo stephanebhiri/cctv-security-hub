@@ -293,8 +293,19 @@
   border: 1px solid #555;
   border-radius: 3px;
   height: 6px;
-  overflow: hidden;
+  overflow: visible;
   margin-top: 10px;
+  position: relative;
+}
+
+.progress-container.interactive {
+  cursor: pointer;
+  height: 10px;
+}
+
+.progress-container.interactive:hover {
+  border-color: #00ff00;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
 }
 
 .progress-bar {
@@ -302,6 +313,31 @@
   background: linear-gradient(90deg, #00ff00, #66ff66);
   transition: width 0.3s ease;
   border-radius: 2px;
+  position: relative;
+}
+
+.progress-handle {
+  position: absolute;
+  top: -2px;
+  width: 14px;
+  height: 14px;
+  background: #00ff00;
+  border: 2px solid #333;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  cursor: grab;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  transition: left 0.3s ease;
+}
+
+.progress-handle:hover {
+  background: #66ff66;
+  transform: translateX(-50%) scale(1.2);
+}
+
+.progress-container.interactive:active .progress-handle {
+  cursor: grabbing;
+  background: #88ff88;
 }
 
 /* Loading States */

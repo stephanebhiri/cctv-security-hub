@@ -377,7 +377,79 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     });
   }, [cameras, currentVideoOffset, getSortedVideoEntries]);
 
-  // Keyboard navigation for timeshift
+  // Progress bar click navigation
+  const handleProgressClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const progressWidth = rect.width;
+    const clickPercent = clickX / progressWidth;
+    
+    // Convert percentage to offset (-totalVideos/2 to +totalVideos/2)
+    const totalVideos = getTotalVideos();
+    const newOffset = Math.round((clickPercent - 0.5) * totalVideos);
+    
+    // Check if this offset is valid
+    const validOffset = cameras.some(camera => {
+      if (!camera.data) return false;
+      const videoEntries = getSortedVideoEntries(camera.id);
+      const targetIndex = camera.data.closestIndex + newOffset;
+      return targetIndex >= 0 && targetIndex < videoEntries.length;
+    });
+    
+    if (validOffset) {
+      setCurrentVideoOffset(newOffset);
+    }
+  }, [cameras, getTotalVideos, getSortedVideoEntries]);
+
+  // Progress bar drag navigation
+  const [isDragging, setIsDragging] = useState(false);
+  const progressRef = useRef<HTMLDivElement>(null);
+  
+  const handleProgressMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    handleProgressClick(event);
+  }, [handleProgressClick]);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDragging || !progressRef.current) return;
+      
+      const rect = progressRef.current.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const progressWidth = rect.width;
+      const clickPercent = Math.max(0, Math.min(1, clickX / progressWidth));
+      
+      const totalVideos = getTotalVideos();
+      const newOffset = Math.round((clickPercent - 0.5) * totalVideos);
+      
+      const validOffset = cameras.some(camera => {
+        if (!camera.data) return false;
+        const videoEntries = getSortedVideoEntries(camera.id);
+        const targetIndex = camera.data.closestIndex + newOffset;
+        return targetIndex >= 0 && targetIndex < videoEntries.length;
+      });
+      
+      if (validOffset) {
+        setCurrentVideoOffset(newOffset);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, cameras, getTotalVideos, getSortedVideoEntries]);
+
+  // Keyboard and mouse navigation for timeshift
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle if not in an input field
@@ -409,8 +481,33 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       }
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      // Only handle wheel events over the camera grid or controls
+      const target = event.target as HTMLElement;
+      if (target.closest('.camera-grid') || target.closest('.video-controls')) {
+        event.preventDefault();
+        
+        if (event.deltaY > 0) {
+          // Scroll down = next video
+          if (canGoToNext()) {
+            goToNext();
+          }
+        } else {
+          // Scroll up = previous video
+          if (canGoToPrevious()) {
+            goToPrevious();
+          }
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('wheel', handleWheel);
+    };
   }, [canGoToPrevious, canGoToNext, goToPrevious, goToNext, handlePlayPause]);
 
   // Video container component
@@ -568,19 +665,27 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             
             <div className="timeshift-info">
               <span className="keyboard-hint">
-                ⌨️ ←→ Navigate | Space Play/Pause | Home Target
+                ⌨️ ←→ Navigate | Space Play/Pause | Home Target | 🖱️ Scroll/Click/Drag
               </span>
             </div>
           </div>
           
           {/* Progress Bar */}
-          <div className="progress-container">
+          <div 
+            ref={progressRef}
+            className="progress-container interactive"
+            onMouseDown={handleProgressMouseDown}
+            title="Cliquer ou glisser pour naviguer dans le temps"
+          >
             <div 
               className="progress-bar"
               style={{ 
                 width: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`
               }}
             />
+            <div className="progress-handle" style={{
+              left: `${50 + (currentVideoOffset / Math.max(getTotalVideos(), 1)) * 50}%`
+            }} />
           </div>
         </div>
 
