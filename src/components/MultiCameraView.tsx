@@ -33,7 +33,9 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   ]);
   const [currentVideoOffset, setCurrentVideoOffset] = useState(0); // Offset from target timestamp
   const [isPlaying, setIsPlaying] = useState(false);
+  const [videosReadyCount, setVideosReadyCount] = useState(0);
   const videoElementsRef = useRef<{ [key: number]: HTMLVideoElement | null }>({});
+  const autoPlayTriggered = useRef(false);
   
   const cctvService = useRef(new CCTVService()).current;
 
@@ -80,6 +82,8 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
 
   const loadAllCameras = useCallback(async () => {
     setCameras(prev => prev.map(cam => ({ ...cam, loading: true, error: null })));
+    setVideosReadyCount(0);
+    autoPlayTriggered.current = false;
     
     const cameraIds = [1, 2, 3, 4, 5, 6];
     const loadPromises = cameraIds.map(async (cameraId) => {
@@ -188,13 +192,22 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     if (!isPlaying) {
       setIsPlaying(true);
       
-      // Sequential playback for Safari compatibility
+      // Safari needs sequential playback with forced loading
       for (const video of videos) {
-        if (video && video.readyState >= 2) {
+        if (video) {
           try {
+            // Force load if not ready
+            if (video.readyState < 2) {
+              video.load();
+              await new Promise(resolve => {
+                video.addEventListener('loadeddata', resolve, { once: true });
+              });
+            }
+            
             await video.play();
-            // Small delay to prevent Safari from rejecting concurrent plays
-            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log(`✅ Video ${video.src} started`);
+            // Small delay for Safari compatibility
+            await new Promise(resolve => setTimeout(resolve, 150));
           } catch (err) {
             console.error('Play failed:', err);
           }
@@ -229,6 +242,12 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         videoElement.style.width = '100%';
         videoElement.style.height = '200px';
         videoElement.addEventListener('ended', handleVideoEnded);
+        
+        // Auto-play detection - when video can play through
+        videoElement.addEventListener('canplaythrough', () => {
+          setVideosReadyCount(prev => prev + 1);
+        });
+        
         videoElements[camera.id] = videoElement;
       }
     });
@@ -245,15 +264,38 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   
   // Update video sources separately
   useEffect(() => {
+    setVideosReadyCount(0); // Reset ready count when sources change
+    autoPlayTriggered.current = false;
+    
     cameras.forEach(camera => {
       const videoElement = videoElementsRef.current[camera.id];
       const videoUrl = getCurrentVideoUrl(camera.id);
       
       if (videoElement && videoUrl && videoElement.src !== videoUrl) {
+        // Safari fix: pause, clear, set source, then load
+        videoElement.pause();
+        videoElement.removeAttribute('src');
+        videoElement.load(); // Clear previous
         videoElement.src = videoUrl;
+        videoElement.load(); // Load new source - forces Safari to show video
       }
     });
   }, [cameras, currentVideoOffset, getCurrentVideoUrl]);
+
+  // Auto-play when all videos are ready (Chrome mainly)
+  useEffect(() => {
+    const validCamerasCount = cameras.filter(cam => cam.data && getCurrentVideoUrl(cam.id)).length;
+    
+    if (videosReadyCount >= validCamerasCount && validCamerasCount > 0 && !autoPlayTriggered.current && !isPlaying) {
+      console.log(`🎬 Auto-play: ${videosReadyCount}/${validCamerasCount} videos ready`);
+      autoPlayTriggered.current = true;
+      
+      // Small delay then auto-play
+      setTimeout(() => {
+        handlePlayPause();
+      }, 500);
+    }
+  }, [videosReadyCount, cameras, isPlaying, getCurrentVideoUrl]);
 
   const goToPrevious = useCallback(() => {
     // Move to previous video (negative offset allows going before target)

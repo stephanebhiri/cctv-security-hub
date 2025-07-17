@@ -573,21 +573,27 @@ app.get('/static/cache/videos/:filename', async (req, res) => {
       return res.status(500).send('Failed to stream video');
     }
     
-    // Set headers for video streaming
+    // Set headers for video streaming - Safari needs Content-Length
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
     
-    // Stream the video directly to client while saving to cache
-    const cacheStream = fs.createWriteStream(cachePath);
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
     
-    response.body.pipe(res);
-    response.body.pipe(cacheStream);
+    // Safari-friendly: Download then serve instead of dual-pipe streaming
+    console.log(`📥 Downloading video for Safari compatibility: ${filename}`);
+    const buffer = await response.buffer();
     
-    console.log(`🎬 Video streaming started: ${filename}`);
+    // Save to cache
+    fs.writeFileSync(cachePath, buffer);
+    console.log(`💾 Video cached: ${filename} (${buffer.length} bytes)`);
     
-    cacheStream.on('finish', () => {
-      console.log(`💾 Video cached: ${filename}`);
-    });
+    // Serve to client
+    res.send(buffer);
+    
+    console.log(`✅ Video served: ${filename}`);
     
   } catch (error) {
     console.error(`💥 Error handling video request:`, error);
