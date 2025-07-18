@@ -112,4 +112,37 @@ router.get('/videos-404', async (req, res) => {
 // Cache management route
 router.delete('/cache', clearCache);
 
+// Simple cache info endpoint
+router.get('/cache-info', (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const cacheDir = path.join(__dirname, '..', '..', 'static', 'cache', 'videos');
+    
+    let totalSize = 0;
+    let fileCount = 0;
+    
+    if (fs.existsSync(cacheDir)) {
+      const files = fs.readdirSync(cacheDir);
+      files.forEach(file => {
+        if (file.endsWith('.mp4')) {
+          const filePath = path.join(cacheDir, file);
+          const stats = fs.statSync(filePath);
+          totalSize += stats.size;
+          fileCount++;
+        }
+      });
+    }
+    
+    return ApiResponse.success(res, {
+      files: fileCount,
+      size: `${(totalSize / 1024 / 1024).toFixed(1)} MB`,
+      sizeBytes: totalSize
+    });
+  } catch (error) {
+    logger.error('Cache info error', { error: error.message });
+    return ApiResponse.internalError(res, error);
+  }
+});
+
 module.exports = router;

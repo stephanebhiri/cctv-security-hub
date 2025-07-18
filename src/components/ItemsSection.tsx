@@ -23,7 +23,7 @@ const ItemsSection: React.FC<ItemsSectionProps> = React.memo(({ onItemClick, onH
     setAutoRefreshEnabled(prev => !prev);
   }, []);
 
-  useAutoRefresh(silentRefresh, 5000, autoRefreshEnabled);
+  useAutoRefresh(silentRefresh, 30000, autoRefreshEnabled); // 30 seconds instead of 5
 
   const [currentTime, setCurrentTime] = useState(() => new Date().toLocaleTimeString());
   
@@ -166,7 +166,7 @@ const ItemsSection: React.FC<ItemsSectionProps> = React.memo(({ onItemClick, onH
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${autoRefreshEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
             <span className="text-gray-800 font-medium">
-              Auto-refresh: {autoRefreshEnabled ? 'Toutes les 5 secondes' : 'Désactivé'}
+              Auto-refresh: {autoRefreshEnabled ? 'Toutes les 30 secondes' : 'Désactivé'}
             </span>
           </div>
           <div className="flex items-center space-x-2">

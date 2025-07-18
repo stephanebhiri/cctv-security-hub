@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CCTVService } from './services/CCTVService';
-import MultiCameraView from './components/MultiCameraView';
+import SimpleMultiCameraView from './components/SimpleMultiCameraView';
 import ItemsSection from './components/ItemsSection';
 import { automationAPI } from './api/AutomationAPI';
 import './App.css';
@@ -103,7 +103,7 @@ const App: React.FC = () => {
     try {
       const result = await cctvService.eraseCache();
       if (result.success) {
-        window.alert(`✅ Cache vidé avec succès !\n${result.filesDeleted} fichiers supprimés\n${result.sizeFreed}MB libérés`);
+        window.alert(`✅ Cache vidé avec succès !\n${result.data.filesDeleted} fichiers supprimés\n${result.data.sizeFreed}MB libérés`);
       } else {
         setError('Échec du vidage du cache');
       }
@@ -264,7 +264,7 @@ const App: React.FC = () => {
           <div className="cctv-modal">
             <div className="modal-content">
               {/* Direct MultiCameraView with unified header */}
-              <MultiCameraView
+              <SimpleMultiCameraView
                 targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
                 onError={(error) => setError(error)}
                 isSearching={loading}

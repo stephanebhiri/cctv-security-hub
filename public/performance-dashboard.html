@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Dashboard - CCTV System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #3498db;
+        }
+
+        .card.warning {
+            border-left-color: #f39c12;
+        }
+
+        .card.error {
+            border-left-color: #e74c3c;
+        }
+
+        .card.success {
+            border-left-color: #27ae60;
+        }
+
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .metric-value.good {
+            color: #27ae60;
+        }
+
+        .metric-value.warning {
+            color: #f39c12;
+        }
+
+        .metric-value.error {
+            color: #e74c3c;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+        }
+
+        .progress-fill.error {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(#27ae60 0deg, #27ae60 var(--score-deg), #ecf0f1 var(--score-deg));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem auto;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .recommendations {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .recommendation {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #f39c12;
+        }
+
+        .recommendation h4 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .recommendation p {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .recommendation .impact {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .impact.high {
+            background: #e74c3c;
+        }
+
+        .impact.medium {
+            background: #f39c12;
+        }
+
+        .impact.low {
+            background: #27ae60;
+        }
+
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c00;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .timestamp {
+            text-align: right;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Performance Dashboard</h1>
+        <p>CCTV System - Real-time Performance Monitoring</p>
+    </div>
+
+    <div class="container">
+        <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh Data</button>
+        
+        <div id="error-container"></div>
+        <div id="loading" class="loading">Loading performance data...</div>
+        
+        <div id="dashboard-content" style="display: none;">
+            <div class="dashboard-grid">
+                <!-- Performance Score -->
+                <div class="card success">
+                    <h3>📊 Performance Score</h3>
+                    <div id="score-circle" class="score-circle"></div>
+                    <div id="score-details"></div>
+                </div>
+
+                <!-- System Overview -->
+                <div class="card">
+                    <h3>🖥️ System Overview</h3>
+                    <div id="system-metrics"></div>
+                </div>
+
+                <!-- Video Streaming -->
+                <div class="card">
+                    <h3>📹 Video Streaming</h3>
+                    <div id="video-metrics"></div>
+                </div>
+
+                <!-- Response Times -->
+                <div class="card">
+                    <h3>⚡ Response Times</h3>
+                    <div id="response-times"></div>
+                </div>
+
+                <!-- Top Endpoints -->
+                <div class="card">
+                    <h3>🔝 Top Endpoints</h3>
+                    <div id="top-endpoints"></div>
+                </div>
+
+                <!-- Error Breakdown -->
+                <div class="card">
+                    <h3>❌ Error Breakdown</h3>
+                    <div id="error-breakdown"></div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="recommendations">
+                <h3>💡 Performance Recommendations</h3>
+                <div id="recommendations-list"></div>
+            </div>
+
+            <div class="timestamp" id="last-updated"></div>
+        </div>
+    </div>
+
+    <script>
+        let dashboardData = null;
+        let refreshInterval = null;
+
+        // Load dashboard data
+        async function loadDashboard() {
+            const loadingEl = document.getElementById('loading');
+            const contentEl = document.getElementById('dashboard-content');
+            const errorEl = document.getElementById('error-container');
+            
+            loadingEl.style.display = 'block';
+            errorEl.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/performance/dashboard');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                dashboardData = await response.json();
+                
+                if (dashboardData.success) {
+                    renderDashboard(dashboardData.data);
+                    contentEl.style.display = 'block';
+                } else {
+                    throw new Error(dashboardData.error?.message || 'Failed to load dashboard');
+                }
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                errorEl.innerHTML = `<div class="error-message">❌ Error loading dashboard: ${error.message}</div>`;
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        // Render dashboard
+        function renderDashboard(data) {
+            renderPerformanceScore(data);
+            renderSystemOverview(data.overview);
+            renderVideoMetrics(data.videoStreaming);
+            renderResponseTimes(data.performance.responseTimePercentiles);
+            renderTopEndpoints(data.topEndpoints);
+            renderErrorBreakdown(data.errorBreakdown);
+            renderRecommendations(data.recommendations);
+            
+            document.getElementById('last-updated').textContent = 
+                `Last updated: ${new Date().toLocaleString()}`;
+        }
+
+        // Render performance score
+        function renderPerformanceScore(data) {
+            // This would need the actual score from the analysis endpoint
+            fetch('/api/performance/analysis')
+                .then(response => response.json())
+                .then(analysis => {
+                    if (analysis.success) {
+                        const score = analysis.data.score;
+                        const scoreEl = document.getElementById('score-circle');
+                        scoreEl.style.setProperty('--score-deg', `${(score / 100) * 360}deg`);
+                        scoreEl.textContent = `${score}%`;
+                        
+                        const detailsEl = document.getElementById('score-details');
+                        detailsEl.innerHTML = `
+                            <div class="metric">
+                                <span>Avg Response Time</span>
+                                <span class="metric-value">${analysis.data.metrics.avgResponseTime || 0}ms</span>
+                            </div>
+                            <div class="metric">
+                                <span>Cache Efficiency</span>
+                                <span class="metric-value">${(analysis.data.metrics.cacheEfficiency * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="metric">
+                                <span>Error Rate</span>
+                                <span class="metric-value">${analysis.data.metrics.errorRate.toFixed(2)}%</span>
+                            </div>
+                        `;
+                    }
+                });
+        }
+
+        // Render system overview
+        function renderSystemOverview(overview) {
+            const systemEl = document.getElementById('system-metrics');
+            systemEl.innerHTML = `
+                <div class="metric">
+                    <span>Uptime</span>
+                    <span class="metric-value good">${overview.uptime}</span>
+                </div>
+                <div class="metric">
+                    <span>Requests/sec</span>
+                    <span class="metric-value ${overview.requestsPerSecond > 10 ? 'warning' : 'good'}">${overview.requestsPerSecond}</span>
+                </div>
+                <div class="metric">
+                    <span>Error Rate</span>
+                    <span class="metric-value ${overview.errorRate > 1 ? 'error' : 'good'}">${overview.errorRate.toFixed(2)}%</span>
+                </div>
+                <div class="metric">
+                    <span>Avg Response</span>
+                    <span class="metric-value ${overview.avgResponseTime > 1000 ? 'error' : overview.avgResponseTime > 500 ? 'warning' : 'good'}">${overview.avgResponseTime}ms</span>
+                </div>
+            `;
+        }
+
+        // Render video metrics
+        function renderVideoMetrics(video) {
+            const videoEl = document.getElementById('video-metrics');
+            videoEl.innerHTML = `
+                <div class="metric">
+                    <span>Cache Hit Rate</span>
+                    <span class="metric-value ${parseFloat(video.cacheHitRate) > 70 ? 'good' : 'warning'}">${video.cacheHitRate}</span>
+                </div>
+                <div class="metric">
+                    <span>Total Served</span>
+                    <span class="metric-value">${video.totalServed}</span>
+                </div>
+                <div class="metric">
+                    <span>Avg Bandwidth</span>
+                    <span class="metric-value">${video.avgBandwidth}</span>
+                </div>
+            `;
+        }
+
+        // Render response times
+        function renderResponseTimes(times) {
+            const timesEl = document.getElementById('response-times');
+            timesEl.innerHTML = `
+                <div class="metric">
+                    <span>50th percentile</span>
+                    <span class="metric-value good">${times.p50}</span>
+                </div>
+                <div class="metric">
+                    <span>90th percentile</span>
+                    <span class="metric-value ${parseInt(times.p90) > 1000 ? 'warning' : 'good'}">${times.p90}</span>
+                </div>
+                <div class="metric">
+                    <span>95th percentile</span>
+                    <span class="metric-value ${parseInt(times.p95) > 1000 ? 'error' : 'good'}">${times.p95}</span>
+                </div>
+                <div class="metric">
+                    <span>99th percentile</span>
+                    <span class="metric-value ${parseInt(times.p99) > 2000 ? 'error' : 'warning'}">${times.p99}</span>
+                </div>
+            `;
+        }
+
+        // Render top endpoints
+        function renderTopEndpoints(endpoints) {
+            const endpointsEl = document.getElementById('top-endpoints');
+            if (endpoints.length === 0) {
+                endpointsEl.innerHTML = '<p>No data available</p>';
+                return;
+            }
+            
+            endpointsEl.innerHTML = endpoints.map(endpoint => `
+                <div class="metric">
+                    <span>${endpoint.method} ${endpoint.path}</span>
+                    <span class="metric-value">${endpoint.count}</span>
+                </div>
+            `).join('');
+        }
+
+        // Render error breakdown
+        function renderErrorBreakdown(errors) {
+            const errorsEl = document.getElementById('error-breakdown');
+            if (errors.length === 0) {
+                errorsEl.innerHTML = '<p style="color: #27ae60;">✅ No errors detected</p>';
+                return;
+            }
+            
+            errorsEl.innerHTML = errors.map(error => `
+                <div class="metric">
+                    <span>${error.status} ${error.path}</span>
+                    <span class="metric-value error">${error.count}</span>
+                </div>
+            `).join('');
+        }
+
+        // Render recommendations
+        function renderRecommendations(recommendations) {
+            const recEl = document.getElementById('recommendations-list');
+            if (recommendations.length === 0) {
+                recEl.innerHTML = '<p style="color: #27ae60;">✅ No performance issues detected</p>';
+                return;
+            }
+            
+            recEl.innerHTML = recommendations.map(rec => `
+                <div class="recommendation">
+                    <h4>${rec.title}</h4>
+                    <p>${rec.description}</p>
+                    <p><strong>Expected gain:</strong> ${rec.estimatedGain}</p>
+                    <span class="impact ${rec.impact}">${rec.impact.toUpperCase()} IMPACT</span>
+                </div>
+            `).join('');
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            
+            // Auto-refresh every 30 seconds
+            refreshInterval = setInterval(loadDashboard, 30000);
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

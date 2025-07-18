@@ -109,7 +109,7 @@ export class CCTVService {
     }
   }
 
-  async eraseCache(): Promise<{ success: boolean; message: string; filesDeleted: number; sizeFreed: number }> {
+  async eraseCache(): Promise<{ success: boolean; data: { message: string; filesDeleted: number; sizeFreed: number } }> {
     try {
       const response = await fetch('/api/cache', {
         method: 'DELETE'

@@ -7,6 +7,7 @@ const { videoMetadata } = require('../utils/videoTools');
 const { CCTV } = require('../config/constants');
 const { authenticate } = require('../utils/auth');
 const ApiResponse = require('../utils/responseFormatter');
+const { optimizedVideoCache } = require('../utils/optimizedVideoCache');
 
 // Performance monitoring
 class PerformanceMonitor extends Transform {
@@ -35,18 +36,47 @@ class PerformanceMonitor extends Transform {
 // Middleware to handle video file requests with progressive streaming and optimization
 async function handleVideoRequestOptimized(req, res) {
   const filename = req.params.filename;
-  const cachePath = path.join(__dirname, '..', '..', 'static', 'cache', 'videos', filename);
+  const cacheKey = filename.replace('.mp4', '');
   
   console.log(`📹 Video request: ${filename}`);
   
   // Handle range requests for better performance
   const range = req.headers.range;
   
-  // Check if file exists in cache
-  if (fs.existsSync(cachePath)) {
+  // Check if file exists in optimized cache
+  let cachedPath = optimizedVideoCache.get(cacheKey);
+  
+  // If not in optimized cache, check if file exists in legacy cache
+  if (!cachedPath) {
+    const legacyPath = path.join(__dirname, '..', '..', 'static', 'cache', 'videos', filename);
+    if (fs.existsSync(legacyPath)) {
+      console.log(`📦 Migrating legacy cached video to optimized cache: ${filename}`);
+      
+      // Add to optimized cache metadata
+      const stat = fs.statSync(legacyPath);
+      const match = filename.match(/cam(\d+)_(\d+)_([a-f0-9]+)\.mp4/);
+      const cameraId = match ? parseInt(match[1]) : 1;
+      const timestamp = match ? parseInt(match[2]) : Date.now();
+      
+      optimizedVideoCache.metadataCache.set(cacheKey, {
+        filename,
+        size: stat.size,
+        createdAt: stat.birthtime,
+        lastAccessed: new Date(),
+        accessCount: 1,
+        priority: optimizedVideoCache.calculateInitialPriority({ cameraId, timestamp }),
+        cameraId,
+        timestamp
+      });
+      
+      cachedPath = legacyPath;
+    }
+  }
+  
+  if (cachedPath) {
     console.log(`✅ Serving cached video: ${filename}`);
     
-    const stat = fs.statSync(cachePath);
+    const stat = fs.statSync(cachedPath);
     const fileSize = stat.size;
     
     if (range) {
@@ -65,7 +95,7 @@ async function handleVideoRequestOptimized(req, res) {
         'X-Content-Type-Options': 'nosniff'
       });
       
-      const stream = fs.createReadStream(cachePath, { start, end });
+      const stream = fs.createReadStream(cachedPath, { start, end });
       return stream.pipe(res);
     } else {
       // Full file request
@@ -77,7 +107,7 @@ async function handleVideoRequestOptimized(req, res) {
         'X-Content-Type-Options': 'nosniff'
       });
       
-      const stream = fs.createReadStream(cachePath);
+      const stream = fs.createReadStream(cachedPath);
       return stream.pipe(res);
     }
   }
@@ -133,12 +163,14 @@ async function handleVideoRequestOptimized(req, res) {
     const contentLength = response.headers.get('content-length');
     const contentType = response.headers.get('content-type') || 'video/mp4';
     
-    // Set optimized headers
+    // Set optimized headers for better streaming
     const headers = {
       'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'public, max-age=3600',
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      'Transfer-Encoding': 'chunked',
+      'X-Frame-Options': 'SAMEORIGIN'
     };
     
     if (contentLength) {
@@ -150,7 +182,8 @@ async function handleVideoRequestOptimized(req, res) {
     // Create performance monitor
     const monitor = new PerformanceMonitor();
     
-    // Create cache write stream
+    // Create cache write stream and add to optimized cache
+    const cachePath = path.join(__dirname, '..', '..', 'static', 'cache', 'videos', filename);
     const tempPath = `${cachePath}.tmp`;
     const cacheStream = fs.createWriteStream(tempPath);
     
@@ -164,9 +197,23 @@ async function handleVideoRequestOptimized(req, res) {
           console.error(`⚠️  Failed to rename cache file: ${err.message}`);
           fs.unlink(tempPath, () => {}); // Clean up temp file
         } else {
+          // Add to optimized cache metadata
+          optimizedVideoCache.metadataCache.set(cacheKey, {
+            filename,
+            size: monitor.bytesTransferred,
+            createdAt: new Date(),
+            lastAccessed: new Date(),
+            accessCount: 1,
+            priority: optimizedVideoCache.calculateInitialPriority({ cameraId, timestamp }),
+            cameraId,
+            timestamp
+          });
+          
+          optimizedVideoCache.stats.currentSize += monitor.bytesTransferred;
+          
           const elapsed = (Date.now() - monitor.startTime) / 1000;
           const avgSpeed = (monitor.bytesTransferred / (1024 * 1024)) / elapsed;
-          console.log(`💾 Video cached: ${filename} (${(monitor.bytesTransferred / (1024 * 1024)).toFixed(1)}MB in ${elapsed.toFixed(1)}s @ ${avgSpeed.toFixed(2)}MB/s)`);
+          console.log(`💾 Video cached with optimized cache: ${filename} (${(monitor.bytesTransferred / (1024 * 1024)).toFixed(1)}MB in ${elapsed.toFixed(1)}s @ ${avgSpeed.toFixed(2)}MB/s)`);
         }
       });
     });
