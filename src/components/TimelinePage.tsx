@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Timeline } from 'vis-timeline/standalone';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import '../styles/timeline.css';
+import '../styles/d3-timeline.css';
+import D3Timeline from './D3Timeline';
 
 interface TimelineItem {
   id: string;
@@ -21,8 +23,9 @@ interface TimelineEvent {
   id: string;
   text: string;
   start_date: string;
-  end_date: string;
+  end_date: string | null;
   section_id: string;
+  color: string;
 }
 
 const TimelinePage: React.FC = () => {
@@ -31,6 +34,7 @@ const TimelinePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeScale, setTimeScale] = useState<'day' | 'week' | 'month' | 'year'>('week');
+  const [useD3Timeline, setUseD3Timeline] = useState(true); // Toggle between D3 and vis-timeline
 
   console.log('TimelinePage component rendered');
 
@@ -208,6 +212,22 @@ const TimelinePage: React.FC = () => {
     alert(`Élément: ${item.content}\nDébut: ${item.start.toLocaleString('fr-FR')}\nFin: ${item.end?.toLocaleString('fr-FR') || 'N/A'}`);
   };
 
+  const handleD3ItemClick = (event: TimelineEvent) => {
+    const startDate = new Date(event.start_date);
+    const endDate = event.end_date ? new Date(event.end_date) : null;
+    const startPosix = Math.floor(startDate.getTime() / 1000);
+    const endPosix = endDate ? Math.floor(endDate.getTime() / 1000) : startPosix;
+    
+    console.log('D3 Timeline item clicked:', {
+      item: event.text,
+      start: startPosix,
+      end: endPosix
+    });
+
+    // Launch video player with time range
+    alert(`Élément: ${event.text}\nDébut: ${startDate.toLocaleString('fr-FR')}\nFin: ${endDate?.toLocaleString('fr-FR') || 'En cours'}`);
+  };
+
   const handleTimeScaleChange = (scale: 'day' | 'week' | 'month' | 'year') => {
     setTimeScale(scale);
     
@@ -295,6 +315,25 @@ const TimelinePage: React.FC = () => {
           <div className="scale-buttons">
             <button 
               type="button" 
+              className={`btn-scale ${useD3Timeline ? 'active' : ''}`}
+              onClick={() => setUseD3Timeline(true)}
+              style={{ background: useD3Timeline ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
+            >
+              D3.js
+            </button>
+            <button 
+              type="button" 
+              className={`btn-scale ${!useD3Timeline ? 'active' : ''}`}
+              onClick={() => setUseD3Timeline(false)}
+              style={{ background: !useD3Timeline ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
+            >
+              vis-timeline
+            </button>
+          </div>
+
+          <div className="scale-buttons">
+            <button 
+              type="button" 
               className={`btn-scale ${timeScale === 'day' ? 'active' : ''}`}
               onClick={() => handleTimeScaleChange('day')}
             >
@@ -339,7 +378,18 @@ const TimelinePage: React.FC = () => {
       </div>
 
       <div className="timeline-wrapper">
-        <div ref={timelineRef} className="timeline-visualization" />
+        {useD3Timeline && timelineData ? (
+          <D3Timeline
+            groups={timelineData.groups}
+            events={timelineData.events}
+            onItemClick={handleD3ItemClick}
+            width={1200}
+            height={800}
+            timeScale={timeScale}
+          />
+        ) : (
+          <div ref={timelineRef} className="timeline-visualization" />
+        )}
       </div>
     </div>
   );
