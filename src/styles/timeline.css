@@ -193,6 +193,9 @@
   color: #2d3748 !important;
   font-weight: 500 !important;
   padding: 8px 12px !important;
+  min-height: 60px !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
 .vis-labelset .vis-label.timeline-group {
@@ -200,6 +203,19 @@
   font-weight: 600 !important;
   color: #667eea !important;
 }
+
+/* Force all groups to be visible even when empty */
+.vis-group {
+  min-height: 60px !important;
+  border-bottom: 1px solid rgba(203, 213, 224, 0.2) !important;
+}
+
+.vis-foreground .vis-group {
+  min-height: 60px !important;
+  background: rgba(248, 250, 252, 0.3) !important;
+}
+
+/* Remove the "Aucun événement" text that was showing incorrectly */
 
 .vis-item {
   background: linear-gradient(135deg, #667eea, #764ba2) !important;

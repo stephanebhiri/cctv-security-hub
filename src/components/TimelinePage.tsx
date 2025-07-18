@@ -89,7 +89,9 @@ const TimelinePage: React.FC = () => {
       const timelineGroups = groups.map((group: any) => ({
         id: group.key.toString(),
         content: group.label,
-        className: group.parent ? 'timeline-item' : 'timeline-group'
+        className: group.parent ? 'timeline-item' : 'timeline-group',
+        visible: true,
+        showNested: true
       }));
 
       // Transform events data for vis-timeline
@@ -107,13 +109,22 @@ const TimelinePage: React.FC = () => {
       const options = {
         width: '100%',
         height: '600px',
-        stack: true,
+        stack: false,
         showMajorLabels: true,
         showMinorLabels: true,
         zoomable: true,
         moveable: true,
         orientation: 'top',
         locale: 'fr',
+        groupOrder: function(a: any, b: any) {
+          return parseInt(a.id) - parseInt(b.id);
+        },
+        groupTemplate: (group: any) => {
+          return group.content;
+        },
+        groupHeightMode: 'auto' as const,
+        groupMinHeight: 60,
+        showCurrentTime: true,
         format: {
           minorLabels: {
             millisecond: 'SSS',

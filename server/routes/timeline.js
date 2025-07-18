@@ -74,9 +74,10 @@ router.get('/treehist', async (req, res) => {
       FROM hist h
       JOIN item i ON h.epchist = i.epc 
       LEFT JOIN groupname g ON i.group_id = g.group_id
-      WHERE h.dep >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      WHERE h.dep >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        AND i.group_id != 9
       ORDER BY h.dep DESC
-      LIMIT 200
+      LIMIT 1000
     `;
 
     const [rows] = await pool.execute(query);
@@ -93,7 +94,7 @@ router.get('/treehist', async (req, res) => {
 
     logger.info('Timeline events data requested', { 
       eventCount: timelineEvents.length,
-      dateRange: '30 days'
+      dateRange: '6 months'
     });
 
     res.json(timelineEvents);
