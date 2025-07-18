@@ -25,13 +25,16 @@ const { logger, correlationMiddleware } = require('./config/logger');
 // Import middleware
 const compressionMiddleware = require('./middleware/compression');
 const errorHandler = require('./middleware/errorHandler');
-const { handleVideoRequestOptimized } = require('./middleware/videoStreamingOptimized');
+const { handleVideoRequest } = require('./middleware/videoStreaming');
 const { validators, handleValidationErrors } = require('./middleware/validation');
+const { httpLogger, errorLogger } = require('./middleware/httpLogger');
+const { metricsMiddleware, metricsCollector } = require('./middleware/metrics');
 
 // Import routes
 const itemsRoutes = require('./routes/items');
 const cctvRoutes = require('./routes/cctv');
 const cacheRoutes = require('./routes/cache');
+const performanceRoutes = require('./routes/performance');
 
 // Import utils
 const { startCacheCleanup } = require('./utils/fileTools');
@@ -40,6 +43,11 @@ const PORT = config.server.port;
 
 // Middleware with environment-based configuration
 app.use(correlationMiddleware); // Add correlation ID tracking
+app.use(httpLogger({
+  excludePaths: ['/api/health', '/favicon.ico', '/api/metrics'],
+  slowRequestThreshold: 1000
+})); // HTTP logging
+app.use(metricsMiddleware); // Metrics collection
 app.use(cors(middlewareConfig.cors));
 app.use(compressionMiddleware);
 app.use(express.json({ limit: '10mb' }));
@@ -58,26 +66,33 @@ if (config.environment === 'production') {
 
 // Static files - exclude videos from Express static (let custom middleware handle videos)
 app.use(express.static(path.join(__dirname, '..', 'build')));
-app.use('/static', (req, res, next) => {
-  // Skip Express static for video files - let custom middleware handle them
-  if (req.path.startsWith('/cache/videos/') && req.path.endsWith('.mp4')) {
-    return next();
+
+// Handle ALL video requests with custom middleware BEFORE Express static
+app.use('/static/cache/videos', (req, res, next) => {
+  if (req.path.endsWith('.mp4')) {
+    const filename = req.path.substring(1); // Remove leading slash
+    req.params = { filename: filename };
+    console.log(`🎯 Video request intercepted: ${filename}`);
+    return handleVideoRequest(req, res);
   }
-  // Set proper headers for static files
-  express.static(path.join(__dirname, '..', 'static'), {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.mp4')) {
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Type', 'video/mp4');
-      }
-    }
-  })(req, res, next);
+  next();
+});
+
+// Express static for NON-VIDEO files only - custom middleware to exclude videos
+app.use('/static', (req, res, next) => {
+  // If it's a video file, don't serve it with Express static
+  if (req.path.includes('/cache/videos/') && req.path.endsWith('.mp4')) {
+    return res.status(404).send('Video files handled by custom middleware');
+  }
+  // Serve everything else with Express static
+  express.static(path.join(__dirname, '..', 'static'))(req, res, next);
 });
 
 
 // API Routes
 app.use('/api/items', itemsRoutes);
 app.use('/api/cctv', cctvRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // Conditional routes based on features
 if (features.enableCacheEndpoints) {
@@ -130,16 +145,23 @@ app.get('/api/health',
   }
 );
 
-// Handle video requests that aren't served by static middleware (missing files)
-app.get('/static/cache/videos/:filename', 
-  validators.videoFilename, 
-  handleValidationErrors,
-  (req, res, next) => {
-    // This will only be called if express.static didn't serve the file
-    // (i.e., the file doesn't exist and needs to be downloaded)
-    handleVideoRequestOptimized(req, res, next);
-  }
-);
+// Metrics endpoint (Prometheus format)
+app.get('/api/metrics', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(metricsCollector.toPrometheus());
+});
+
+// Metrics endpoint (JSON format for debugging)
+app.get('/api/metrics/json', (req, res) => {
+  res.json(metricsCollector.getSummary());
+});
+
+// Video requests are now handled by the middleware above, no need for this route
+
+// Performance dashboard route
+app.get('/performance-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'performance-dashboard.html'));
+});
 
 // Handle React Router (serve index.html for all non-API routes)
 app.get('*', (req, res) => {
@@ -147,6 +169,7 @@ app.get('*', (req, res) => {
 });
 
 // Error handling middleware (must be last)
+app.use(errorLogger); // Log errors before handling
 app.use(errorHandler);
 
 // Start cache cleanup system
