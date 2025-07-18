@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { CCTVService } from '../services/CCTVService';
 import '../styles/surveillance.css';
 
@@ -23,6 +23,31 @@ interface CameraState {
   error: string | null;
 }
 
+interface SyncData {
+  cameraId: number;
+  videoUrl: string;
+  videoTimestamp: number;
+  syncOffset: number;
+  syncTime: number;
+}
+
+interface TimelineSegment {
+  timestamp: number;
+  videoUrl: string;
+  cameraId: number;
+  startTime: number;
+  endTime: number;
+  duration: number;
+}
+
+interface TimelineData {
+  segments: TimelineSegment[];
+  minTimestamp: number;
+  maxTimestamp: number;
+  totalDuration: number;
+  currentPosition: number;
+}
+
 const MultiCameraView: React.FC<MultiCameraViewProps> = ({ 
   targetTimestamp, 
   onError,
@@ -41,8 +66,17 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   const [currentVideoOffset, setCurrentVideoOffset] = useState(0); // Offset from target timestamp
   const [isPlaying, setIsPlaying] = useState(false);
   const [videosReadyCount, setVideosReadyCount] = useState(0);
+  const [currentTimestamp, setCurrentTimestamp] = useState(targetTimestamp);
+  const [timelineData, setTimelineData] = useState<TimelineData | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hoverTimestamp, setHoverTimestamp] = useState<number | null>(null);
+  const hoverTimeoutRef = useRef<number | null>(null);
+  const navigationTimeoutRef = useRef<number | null>(null);
+  const playRequestRef = useRef<boolean>(false);
+  const endTransitionRef = useRef<boolean>(false);
   const videoElementsRef = useRef<{ [key: number]: HTMLVideoElement | null }>({});
   const autoPlayTriggered = useRef(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
   
   const cctvService = useRef(new CCTVService()).current;
 
@@ -143,6 +177,18 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   useEffect(() => {
     loadAllCameras();
   }, [loadAllCameras]);
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getSortedVideoEntries = useCallback((cameraId: number) => {
     const camera = cameras.find(c => c.id === cameraId);
@@ -159,14 +205,22 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     
     const videoEntries = getSortedVideoEntries(cameraId);
     
-    // Calculate actual index: closestIndex + offset (allows going before target)
-    const targetIndex = Math.max(0, Math.min(
-      camera.data.closestIndex + currentVideoOffset, 
-      videoEntries.length - 1
-    ));
+    // Find the video that contains the current timestamp
+    let bestIndex = 0;
+    let bestDiff = Infinity;
+    
+    videoEntries.forEach(([key, videoUrl], index) => {
+      const videoTimestamp = camera.data!.timestamps[key];
+      const diff = Math.abs(currentTimestamp - videoTimestamp);
       
-    return videoEntries[targetIndex]?.[1] || null;
-  }, [cameras, currentVideoOffset, getSortedVideoEntries]);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIndex = index;
+      }
+    });
+      
+    return videoEntries[bestIndex]?.[1] || null;
+  }, [cameras, currentTimestamp, getSortedVideoEntries]);
 
   const getCurrentTimestamp = useCallback((cameraId: number) => {
     const camera = cameras.find(c => c.id === cameraId);
@@ -174,16 +228,24 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     
     const videoEntries = getSortedVideoEntries(cameraId);
     
-    // Calculate actual index: closestIndex + offset (allows going before target)
-    const targetIndex = Math.max(0, Math.min(
-      camera.data.closestIndex + currentVideoOffset, 
-      videoEntries.length - 1
-    ));
+    // Find the video that contains the current timestamp
+    let bestIndex = 0;
+    let bestDiff = Infinity;
+    
+    videoEntries.forEach(([key, videoUrl], index) => {
+      const videoTimestamp = camera.data!.timestamps[key];
+      const diff = Math.abs(currentTimestamp - videoTimestamp);
       
-    const videoEntry = videoEntries[targetIndex];
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIndex = index;
+      }
+    });
+      
+    const videoEntry = videoEntries[bestIndex];
     
     return videoEntry ? camera.data.timestamps[videoEntry[0]] : null;
-  }, [cameras, currentVideoOffset, getSortedVideoEntries]);
+  }, [cameras, currentTimestamp, getSortedVideoEntries]);
 
   const getTotalVideos = () => {
     return Math.max(...cameras.map(camera => 
@@ -198,6 +260,314 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   const formatFullTimestamp = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString('fr-FR');
   };
+
+  // Calculate timeline data from all cameras - memoized for performance
+  const calculateTimelineData = useMemo((): TimelineData | null => {
+    const allSegments: TimelineSegment[] = [];
+    
+    // Limit to 1 hour around target (30 minutes before and after)
+    const oneHourBefore = targetTimestamp - 1800; // 30 minutes before
+    const oneHourAfter = targetTimestamp + 1800;  // 30 minutes after
+    
+    cameras.forEach(camera => {
+      if (camera.data) {
+        const videoEntries = Object.entries(camera.data.videos).sort((a, b) => 
+          camera.data!.timestamps[a[0]] - camera.data!.timestamps[b[0]]
+        );
+        
+        videoEntries.forEach(([key, videoUrl]) => {
+          const timestamp = camera.data!.timestamps[key];
+          
+          // Only include videos within 1 hour of target
+          if (timestamp >= oneHourBefore && timestamp <= oneHourAfter) {
+            const duration = 120; // Assume 2 minutes per video
+            
+            allSegments.push({
+              timestamp,
+              videoUrl,
+              cameraId: camera.id,
+              startTime: timestamp,
+              endTime: timestamp + duration,
+              duration
+            });
+          }
+        });
+      }
+    });
+    
+    if (allSegments.length === 0) return null;
+    
+    const timestamps = allSegments.map(s => s.timestamp);
+    const minTimestamp = Math.min(...timestamps);
+    const maxTimestamp = Math.max(...timestamps);
+    const totalDuration = maxTimestamp - minTimestamp + 120; // Add last video duration
+    
+    const currentPosition = ((currentTimestamp - minTimestamp) / totalDuration) * 100;
+    
+    return {
+      segments: allSegments,
+      minTimestamp,
+      maxTimestamp,
+      totalDuration,
+      currentPosition: Math.max(0, Math.min(100, currentPosition))
+    };
+  }, [cameras, currentTimestamp, targetTimestamp]);
+
+  // Update timeline data when cameras change (not on every timestamp change)
+  useEffect(() => {
+    setTimelineData(calculateTimelineData);
+  }, [calculateTimelineData]);
+
+  // Calculate sync data for all cameras - memoized for performance
+  const calculateSyncData = useMemo((): SyncData[] => {
+    const syncData: SyncData[] = [];
+    
+    cameras.forEach(camera => {
+      if (camera.data) {
+        const videoUrl = getCurrentVideoUrl(camera.id);
+        const videoTimestamp = getCurrentTimestamp(camera.id);
+        
+        if (videoUrl && videoTimestamp) {
+          // Calculate how far into the video we should be
+          const syncOffset = currentTimestamp - videoTimestamp;
+          
+          // Each video is 2 minutes (120 seconds)
+          // syncOffset should be between 0 and 119 seconds
+          let syncTime = syncOffset;
+          
+          // If we're beyond this video's duration, we need the next video
+          if (syncTime >= 120) {
+            // We're beyond this video, should be at the next one
+            syncTime = 119; // Stay at end until next video loads
+          } else if (syncTime < 0) {
+            // We're before this video started
+            syncTime = 0;
+          }
+          
+          console.log(`📊 Camera ${camera.id}: currentTimestamp=${currentTimestamp}, videoTimestamp=${videoTimestamp}, syncOffset=${syncOffset}, syncTime=${syncTime}`);
+          
+          syncData.push({
+            cameraId: camera.id,
+            videoUrl,
+            videoTimestamp,
+            syncOffset,
+            syncTime
+          });
+        }
+      }
+    });
+    
+    return syncData;
+  }, [cameras, currentTimestamp, getCurrentVideoUrl, getCurrentTimestamp]);
+
+  // Apply synchronization to all videos
+  const syncAllVideos = useCallback(() => {
+    console.log('🔄 Synchronizing videos to current timestamp:', currentTimestamp);
+    
+    calculateSyncData.forEach(({ cameraId, syncTime, syncOffset }) => {
+      const videoElement = videoElementsRef.current[cameraId];
+      
+      if (videoElement) {
+        // Only sync if the video is ready
+        if (videoElement.readyState >= 2 && videoElement.duration > 0) {
+          // Make sure we don't go past the video duration
+          const timeToSet = Math.min(syncTime, videoElement.duration - 0.5); // Leave 0.5s buffer
+          videoElement.currentTime = timeToSet;
+          console.log(`📹 Camera ${cameraId}: set currentTime to ${timeToSet}s (syncTime=${syncTime}s, videoDuration=${videoElement.duration}s)`);
+        } else {
+          console.log(`⚠️ Camera ${cameraId}: Not ready for sync (readyState=${videoElement.readyState})`);
+        }
+      }
+    });
+  }, [calculateSyncData, currentTimestamp]);
+
+  // Navigate to specific timestamp - debounced for performance
+  const navigateToTimestamp = useCallback((timestamp: number) => {
+    console.log(`🎯 Navigating to timestamp: ${timestamp}`);
+    
+    // Clear any pending navigation
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+    
+    // Debounce rapid navigation calls
+    navigationTimeoutRef.current = setTimeout(() => {
+      setCurrentTimestamp(timestamp);
+      
+      // Always pause videos first
+      setIsPlaying(false);
+      Object.values(videoElementsRef.current).forEach(video => {
+        if (video) {
+          video.pause();
+        }
+      });
+      
+      // Apply synchronization without reloading videos if within same segment
+      const needsVideoChange = cameras.some(camera => {
+        if (!camera.data) return false;
+        
+        const videoElement = videoElementsRef.current[camera.id];
+        if (!videoElement) return false;
+        
+        const currentVideoTimestamp = getCurrentTimestamp(camera.id);
+        if (!currentVideoTimestamp) return false;
+        
+        // Check if new timestamp requires different video
+        const timeDiff = Math.abs(timestamp - currentVideoTimestamp);
+        return timeDiff > 120; // Only change video if > 2 minutes difference
+      });
+      
+      if (needsVideoChange) {
+        console.log('🔄 Video change needed, updating sources');
+        
+        // Reset video ready count
+        setVideosReadyCount(0);
+        autoPlayTriggered.current = false;
+        
+        // Only reload videos if necessary
+        cameras.forEach(camera => {
+          if (camera.data) {
+            const videoEntries = Object.entries(camera.data.videos).sort((a, b) => 
+              camera.data!.timestamps[a[0]] - camera.data!.timestamps[b[0]]
+            );
+            
+            // Find closest video to this timestamp
+            let closestIndex = 0;
+            let closestDiff = Infinity;
+            
+            videoEntries.forEach(([key, videoUrl], index) => {
+              const videoTimestamp = camera.data!.timestamps[key];
+              const diff = Math.abs(timestamp - videoTimestamp);
+              
+              if (diff < closestDiff) {
+                closestDiff = diff;
+                closestIndex = index;
+              }
+            });
+            
+            // Update the video source only if different
+            const videoElement = videoElementsRef.current[camera.id];
+            if (videoElement) {
+              const newVideoUrl = videoEntries[closestIndex][1];
+              if (videoElement.src !== newVideoUrl) {
+                console.log(`📹 Changing video source for camera ${camera.id}: ${newVideoUrl}`);
+                videoElement.src = newVideoUrl;
+                videoElement.load();
+              }
+            }
+          }
+        });
+        
+        // Wait for videos to load before syncing and auto-playing
+        setTimeout(() => {
+          syncAllVideos();
+          // Auto-play after video change
+          setTimeout(() => {
+            console.log('🔄 Auto-playing after video change');
+            setIsPlaying(true);
+            
+            // Get available videos and play them
+            const availableVideos = Object.entries(videoElementsRef.current)
+              .filter(([cameraId, video]) => {
+                const camera = cameras.find(c => c.id === parseInt(cameraId));
+                const isAvailable = camera?.data?.cameraAvailable !== false;
+                const hasVideo = video && video.src && !video.src.includes('videoerror.mp4');
+                return isAvailable && hasVideo;
+              })
+              .map(([, video]) => video)
+              .filter(Boolean);
+            
+            availableVideos.forEach(async (video) => {
+              if (video) {
+                try {
+                  await video.play();
+                  console.log(`✅ Auto-play started for video: ${video.src}`);
+                } catch (err) {
+                  console.error('Auto-play failed:', err);
+                }
+              }
+            });
+          }, 500);
+        }, 800);
+      } else {
+        // Just sync without changing videos
+        syncAllVideos();
+      }
+    }, 100); // 100ms debounce
+  }, [cameras, syncAllVideos, getCurrentTimestamp]);
+
+  // Navigate to previous/next video set with synchronization
+  const navigateWithSync = useCallback((direction: 'prev' | 'next') => {
+    if (!timelineData) return;
+    
+    const step = 120; // 2 minutes step
+    const newTimestamp = direction === 'prev' ? 
+      currentTimestamp - step : currentTimestamp + step;
+    
+    // Check bounds - limit to 1 hour around target
+    const oneHourBefore = targetTimestamp - 1800;
+    const oneHourAfter = targetTimestamp + 1800;
+    
+    if (newTimestamp < oneHourBefore || newTimestamp > oneHourAfter) {
+      console.log('⚠️ Navigation out of bounds (1 hour limit)');
+      return;
+    }
+    
+    navigateToTimestamp(newTimestamp);
+  }, [currentTimestamp, timelineData, navigateToTimestamp, targetTimestamp]);
+
+  // Handle timeline click
+  const handleTimelineClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineData || !timelineRef.current) return;
+    
+    const rect = timelineRef.current.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percentage = (clickX / rect.width) * 100;
+    
+    const newTimestamp = timelineData.minTimestamp + (percentage / 100) * timelineData.totalDuration;
+    navigateToTimestamp(Math.round(newTimestamp));
+  }, [timelineData, navigateToTimestamp]);
+
+  // Handle timeline drag - throttled to prevent too many calls
+  const handleTimelineDrag = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !timelineData) return;
+    
+    if (!timelineRef.current) return;
+    
+    const rect = timelineRef.current.getBoundingClientRect();
+    const dragX = event.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(100, (dragX / rect.width) * 100));
+    
+    const newTimestamp = timelineData.minTimestamp + (percentage / 100) * timelineData.totalDuration;
+    
+    // Only navigate if timestamp changed significantly (reduces spam)
+    const currentTs = getCurrentTimestamp(1) || currentTimestamp;
+    if (Math.abs(newTimestamp - currentTs) > 5) { // 5 second threshold
+      navigateToTimestamp(Math.round(newTimestamp));
+    }
+  }, [isDragging, timelineData, navigateToTimestamp, getCurrentTimestamp, currentTimestamp]);
+
+  // Handle timeline hover with debouncing
+  const handleTimelineHover = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineData || !timelineRef.current) return;
+    
+    // Clear previous timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    
+    // Debounce hover updates to reduce performance impact
+    hoverTimeoutRef.current = setTimeout(() => {
+      const rect = timelineRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      const hoverX = event.clientX - rect.left;
+      const percentage = (hoverX / rect.width) * 100;
+      
+      const hoverTimestamp = timelineData.minTimestamp + (percentage / 100) * timelineData.totalDuration;
+      setHoverTimestamp(Math.round(hoverTimestamp));
+    }, 50); // 50ms debounce
+  }, [timelineData]);
 
   const getCurrentPosition = () => {
     // Limited to 10 clips range (±5 from target)
@@ -215,7 +585,13 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     return { current: currentPosition + 1, total: availableRange };
   };
 
-  const handlePlayPause = async () => {
+  const handlePlayPause = useCallback(async () => {
+    // Prevent overlapping play requests
+    if (playRequestRef.current) {
+      console.log('⚠️ Play request already in progress, skipping');
+      return;
+    }
+    
     // Only get videos from available cameras
     const availableVideos = Object.entries(videoElementsRef.current)
       .filter(([cameraId, video]) => {
@@ -230,7 +606,11 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
     console.log(`🎬 handlePlayPause: Found ${availableVideos.length} available videos out of ${Object.keys(videoElementsRef.current).length} total`);
     
     if (!isPlaying) {
+      playRequestRef.current = true;
       setIsPlaying(true);
+      
+      // Apply synchronization BEFORE starting playback
+      syncAllVideos();
       
       // Safari needs sequential playback with forced loading
       for (const video of availableVideos) {
@@ -240,7 +620,16 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             if (video.readyState < 2) {
               video.load();
               await new Promise(resolve => {
-                video.addEventListener('loadeddata', resolve, { once: true });
+                const handler = () => {
+                  video.removeEventListener('loadeddata', handler);
+                  resolve(undefined);
+                };
+                video.addEventListener('loadeddata', handler);
+                // Timeout to prevent hanging
+                setTimeout(() => {
+                  video.removeEventListener('loadeddata', handler);
+                  resolve(undefined);
+                }, 2000);
               });
             }
             
@@ -254,6 +643,14 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
           }
         }
       }
+      
+      // Re-sync after all videos have started (to handle timing drift)
+      setTimeout(() => {
+        syncAllVideos();
+      }, 500);
+      
+      playRequestRef.current = false;
+      
     } else {
       setIsPlaying(false);
       availableVideos.forEach(video => {
@@ -262,12 +659,37 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         }
       });
     }
-  };
+  }, [cameras, isPlaying, getCurrentVideoUrl, syncAllVideos]);
 
   const handleVideoEnded = useCallback(() => {
-    // Move to next video (positive offset)
-    setCurrentVideoOffset(prev => prev + 1);
-  }, []);
+    console.log('🎬 Video ended, moving to next video');
+    
+    // Move to next video chunk (2 minutes forward)
+    const nextTimestamp = currentTimestamp + 120; // 2 minutes forward
+    
+    // Check if we have videos for this timestamp
+    const hasNextVideo = cameras.some(camera => {
+      if (!camera.data) return false;
+      
+      const videoEntries = Object.entries(camera.data.videos).sort((a, b) => 
+        camera.data!.timestamps[a[0]] - camera.data!.timestamps[b[0]]
+      );
+      
+      // Check if we have a video close to the next timestamp
+      return videoEntries.some(([key, videoUrl]) => {
+        const videoTimestamp = camera.data!.timestamps[key];
+        return Math.abs(nextTimestamp - videoTimestamp) <= 120; // Within 2 minutes
+      });
+    });
+    
+    if (hasNextVideo) {
+      console.log(`🎯 Moving to next video at timestamp: ${nextTimestamp}`);
+      navigateToTimestamp(nextTimestamp);
+    } else {
+      console.log('⏹️ No more videos available, stopping playback');
+      setIsPlaying(false);
+    }
+  }, [currentTimestamp, cameras, navigateToTimestamp]);
 
   // Create video elements once - only for available cameras
   useEffect(() => {
@@ -288,7 +710,16 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
         videoElement.style.objectFit = 'cover';
+        // Add ended event listener for auto-progression
         videoElement.addEventListener('ended', handleVideoEnded);
+        
+        // Add timeupdate to debug video timing
+        videoElement.addEventListener('timeupdate', () => {
+          // Debug: log current time occasionally
+          if (Math.floor(videoElement.currentTime) % 10 === 0 && videoElement.currentTime > 0) {
+            console.log(`📹 Camera ${camera.id}: currentTime=${videoElement.currentTime.toFixed(1)}s/${videoElement.duration.toFixed(1)}s`);
+          }
+        });
         
         // Auto-play detection - when video can play through
         videoElement.addEventListener('canplaythrough', () => {
@@ -304,6 +735,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       Object.values(videoElements).forEach(videoElement => {
         if (videoElement) {
           videoElement.removeEventListener('ended', handleVideoEnded);
+          videoElement.pause(); // Ensure videos are paused
         }
       });
     };
@@ -325,6 +757,10 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       
       if (videoElement && videoUrl && videoElement.src !== videoUrl) {
         console.log(`🎬 Setting video source for camera ${camera.id}: ${videoUrl}`);
+        
+        // Clear any pending play requests
+        playRequestRef.current = false;
+        
         // Safari fix: pause, clear, set source, then load
         videoElement.pause();
         videoElement.removeAttribute('src');
@@ -348,7 +784,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         videoElement.load(); // Load new source - forces Safari to show video
       }
     });
-  }, [cameras, currentVideoOffset, getCurrentVideoUrl]);
+  }, [cameras, getCurrentVideoUrl]);
 
   // Auto-play when all videos are ready (Chrome mainly) - only count available cameras
   useEffect(() => {
@@ -360,7 +796,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       return videoUrl && !videoUrl.includes('videoerror.mp4');
     }).length;
     
-    if (videosReadyCount >= validCamerasCount && validCamerasCount > 0 && !autoPlayTriggered.current && !isPlaying) {
+    if (videosReadyCount >= validCamerasCount && validCamerasCount > 0 && !autoPlayTriggered.current && !isPlaying && !playRequestRef.current) {
       console.log(`🎬 Auto-play: ${videosReadyCount}/${validCamerasCount} videos ready`);
       autoPlayTriggered.current = true;
       
@@ -372,8 +808,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   }, [videosReadyCount, cameras, isPlaying, getCurrentVideoUrl]);
 
   const goToPrevious = useCallback(() => {
-    // Move to previous video (negative offset allows going before target)
-    setCurrentVideoOffset(prev => prev - 1);
+    navigateWithSync('prev');
     
     // Preload next previous video for smooth navigation
     setTimeout(() => {
@@ -390,11 +825,10 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         }
       });
     }, 100);
-  }, [cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
+  }, [navigateWithSync, cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
 
   const goToNext = useCallback(() => {
-    // Move to next video (positive offset)
-    setCurrentVideoOffset(prev => prev + 1);
+    navigateWithSync('next');
     
     // Preload next video for smooth navigation
     setTimeout(() => {
@@ -411,7 +845,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         }
       });
     }, 100);
-  }, [cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
+  }, [navigateWithSync, cameras, currentVideoOffset, getSortedVideoEntries, preloadVideo]);
 
   // Helper function to check if we can navigate (limited to ±5 clips)
   const canGoToPrevious = useCallback(() => {
@@ -456,7 +890,6 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
   }, [cameras, getSortedVideoEntries]);
 
   // Progress bar drag navigation
-  const [isDragging, setIsDragging] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
   
   const handleProgressMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -543,6 +976,30 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [canGoToPrevious, canGoToNext, goToPrevious, goToNext, handlePlayPause]);
+
+  // Timeline segments component - memoized for performance
+  const TimelineSegments = React.memo<{ segments: TimelineSegment[]; minTimestamp: number; totalDuration: number }>(({ segments, minTimestamp, totalDuration }) => {
+    return (
+      <>
+        {segments.map((segment, index) => {
+          const left = ((segment.startTime - minTimestamp) / totalDuration) * 100;
+          const width = (segment.duration / totalDuration) * 100;
+          
+          return (
+            <div
+              key={`${segment.cameraId}-${index}`}
+              className={`timeline-segment camera-${segment.cameraId}`}
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+              }}
+              title={`Camera ${segment.cameraId}: ${formatTimestamp(segment.startTime)}`}
+            />
+          );
+        })}
+      </>
+    );
+  });
 
   // Video container component
   const VideoContainer: React.FC<{ cameraId: number }> = ({ cameraId }) => {
@@ -689,7 +1146,10 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
             
             {currentVideoOffset !== 0 && (
               <button 
-                onClick={() => setCurrentVideoOffset(0)}
+                onClick={() => {
+                  setCurrentVideoOffset(0);
+                  setTimeout(() => syncAllVideos(), 100);
+                }}
                 className="control-button target"
                 title="Retour à la position cible (Home)"
               >
@@ -697,30 +1157,107 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
               </button>
             )}
             
+            <button 
+              onClick={syncAllVideos}
+              className="control-button sync"
+              title="Forcer la synchronisation"
+            >
+              🔄 Sync
+            </button>
+            
             <div className="timeshift-info">
               <span className="keyboard-hint">
                 ⌨️ ←→ Navigate | Space Play/Pause | Home Target | 🖱️ Click/Drag Progress
               </span>
             </div>
+            
+            {/* Sync Status Display */}
+            {/* Sync status removed for performance */}
           </div>
           
-          {/* Progress Bar */}
-          <div 
-            ref={progressRef}
-            className="progress-container interactive"
-            onMouseDown={handleProgressMouseDown}
-            title="Cliquer ou glisser pour naviguer dans le temps"
-          >
-            <div 
-              className="progress-bar"
-              style={{ 
-                width: `${50 + (currentVideoOffset / 10) * 50}%`
-              }}
-            />
-            <div className="progress-handle" style={{
-              left: `${50 + (currentVideoOffset / 10) * 50}%`
-            }} />
-          </div>
+          {/* Advanced Timeline */}
+          {timelineData && (
+            <div className="timeline-container">
+              <div className="timeline-info">
+                <span className="timeline-current">
+                  {formatTimestamp(currentTimestamp)}
+                </span>
+                <span className="timeline-range">
+                  {formatTimestamp(timelineData.minTimestamp)} → {formatTimestamp(timelineData.maxTimestamp)}
+                </span>
+                <span className="timeline-duration">
+                  1 hour range
+                </span>
+              </div>
+              
+              <div className="timeline-legend">
+                {[1, 2, 3, 4, 5, 6].map(camId => (
+                  <div key={camId} className="timeline-legend-item">
+                    <div className={`timeline-legend-color camera-${camId}`}></div>
+                    <span>Cam {camId}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <div 
+                ref={timelineRef}
+                className="timeline-track"
+                onClick={handleTimelineClick}
+                onMouseMove={(e) => {
+                  // Throttle mouse events to prevent performance issues
+                  if (isDragging) {
+                    handleTimelineDrag(e);
+                  } else {
+                    handleTimelineHover(e);
+                  }
+                }}
+                onMouseDown={() => setIsDragging(true)}
+                onMouseUp={() => setIsDragging(false)}
+                onMouseLeave={() => {
+                  setIsDragging(false);
+                  setHoverTimestamp(null);
+                  // Clear hover timeout on leave
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                  }
+                  // Clear navigation timeout on leave
+                  if (navigationTimeoutRef.current) {
+                    clearTimeout(navigationTimeoutRef.current);
+                  }
+                }}
+                onMouseEnter={handleTimelineHover}
+              >
+                {/* Video segments */}
+                <TimelineSegments 
+                  segments={timelineData.segments} 
+                  minTimestamp={timelineData.minTimestamp} 
+                  totalDuration={timelineData.totalDuration} 
+                />
+                
+                {/* Current position indicator */}
+                <div 
+                  className="timeline-indicator"
+                  style={{
+                    left: `${((currentTimestamp - timelineData.minTimestamp) / timelineData.totalDuration) * 100}%`
+                  }}
+                />
+                
+                {/* Hover indicator */}
+                {hoverTimestamp && (
+                  <div 
+                    className="timeline-hover"
+                    style={{
+                      left: `${((hoverTimestamp - timelineData.minTimestamp) / timelineData.totalDuration) * 100}%`
+                    }}
+                  >
+                    <div className="timeline-tooltip">
+                      {formatTimestamp(hoverTimestamp)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Camera Grid */}
