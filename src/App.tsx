@@ -3,6 +3,7 @@ import { CCTVService } from './services/CCTVService';
 import SimpleMultiCameraView from './components/SimpleMultiCameraView';
 import ItemsSection from './components/ItemsSection';
 import HistoryPage from './components/HistoryPage';
+import TimelinePage from './components/TimelinePage';
 import { automationAPI } from './api/AutomationAPI';
 import './App.css';
 
@@ -13,7 +14,7 @@ const App: React.FC = () => {
   const [videoSectionVisible, setVideoSectionVisible] = useState(false);
   const [currentItemName, setCurrentItemName] = useState<string>('');
   const [loadingMessage, setLoadingMessage] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<'live' | 'history'>('live');
+  const [currentPage, setCurrentPage] = useState<'live' | 'history' | 'timeline'>('live');
 
   const cctvService = new CCTVService();
 
@@ -203,6 +204,12 @@ const App: React.FC = () => {
           >
             📋 History
           </button>
+          <button 
+            onClick={() => setCurrentPage('timeline')}
+            className={`nav-button ${currentPage === 'timeline' ? 'active' : ''}`}
+          >
+            📅 Timeline
+          </button>
         </nav>
       </header>
 
@@ -223,6 +230,8 @@ const App: React.FC = () => {
         {/* Conditional Page Rendering */}
         {currentPage === 'history' ? (
           <HistoryPage />
+        ) : currentPage === 'timeline' ? (
+          <TimelinePage />
         ) : (
           <>
             {/* Developer Tools */}

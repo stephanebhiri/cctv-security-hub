@@ -36,6 +36,7 @@ const cctvRoutes = require('./routes/cctv');
 const cacheRoutes = require('./routes/cache');
 const performanceRoutes = require('./routes/performance');
 const historyRoutes = require('./routes/history');
+const timelineRoutes = require('./routes/timeline');
 
 // Import utils
 const { startCacheCleanup } = require('./utils/fileTools');
@@ -95,6 +96,7 @@ app.use('/static', (req, res, next) => {
 app.use('/api/items', itemsRoutes);
 app.use('/api/cctv', cctvRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api', timelineRoutes);
 // Simple history endpoint - direct implementation with proper formatting
 app.get('/api/history', async (req, res) => {
   try {
