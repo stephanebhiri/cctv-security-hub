@@ -284,7 +284,7 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
         videoElement.controls = true;
         videoElement.muted = true;
         videoElement.playsInline = true;
-        videoElement.preload = 'metadata';
+        videoElement.preload = 'none'; // Don't preload until needed
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
         videoElement.style.objectFit = 'cover';
@@ -324,10 +324,26 @@ const MultiCameraView: React.FC<MultiCameraViewProps> = ({
       const videoUrl = getCurrentVideoUrl(camera.id);
       
       if (videoElement && videoUrl && videoElement.src !== videoUrl) {
+        console.log(`🎬 Setting video source for camera ${camera.id}: ${videoUrl}`);
         // Safari fix: pause, clear, set source, then load
         videoElement.pause();
         videoElement.removeAttribute('src');
         videoElement.load(); // Clear previous
+        
+        // Add error handling
+        videoElement.onerror = (e) => {
+          console.error(`❌ Video error for camera ${camera.id}:`, e);
+          console.error('Video element error:', videoElement.error);
+        };
+        
+        videoElement.onloadstart = () => {
+          console.log(`📼 Video load started for camera ${camera.id}`);
+        };
+        
+        videoElement.oncanplay = () => {
+          console.log(`✅ Video can play for camera ${camera.id}`);
+        };
+        
         videoElement.src = videoUrl;
         videoElement.load(); // Load new source - forces Safari to show video
       }

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .video-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        video {
+            width: 100%;
+            height: auto;
+            background: black;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <h1>Video Player Test</h1>
+        
+        <h2>Test 1: Direct Video Element</h2>
+        <video id="video1" controls>
+            <source src="/static/cache/videos/cam1_1752786122_492b95ae.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="status" id="status1">Status: Not loaded</div>
+        
+        <h2>Test 2: Dynamic Video Loading</h2>
+        <video id="video2" controls></video>
+        <div>
+            <button onclick="loadVideo2()">Load Video Dynamically</button>
+            <button onclick="loadVideoWithEvents()">Load with Event Handlers</button>
+        </div>
+        <div class="status" id="status2">Status: Not loaded</div>
+        
+        <h2>Test 3: React-style Attributes</h2>
+        <video id="video3" controls autoplay preload="metadata"></video>
+        <div>
+            <button onclick="loadVideo3()">Load Video React Style</button>
+        </div>
+        <div class="status" id="status3">Status: Not loaded</div>
+        
+        <h2>Event Log</h2>
+        <div class="status" id="eventLog" style="height: 200px; overflow-y: auto;">
+            Event log will appear here...
+        </div>
+    </div>
+
+    <script>
+        const eventLog = document.getElementById('eventLog');
+        
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            eventLog.innerHTML = `${time}: ${message}<br>` + eventLog.innerHTML;
+            console.log(message);
+        }
+
+        // Test 1: Monitor static video
+        const video1 = document.getElementById('video1');
+        video1.addEventListener('loadstart', () => {
+            log('Video 1: Load started');
+            document.getElementById('status1').textContent = 'Status: Loading...';
+        });
+        video1.addEventListener('canplay', () => {
+            log('Video 1: Can play');
+            document.getElementById('status1').textContent = 'Status: Ready to play';
+        });
+        video1.addEventListener('error', (e) => {
+            log(`Video 1: Error - ${e.target.error?.message || 'Unknown error'}`);
+            document.getElementById('status1').textContent = 'Status: Error loading video';
+        });
+
+        // Test 2: Dynamic loading
+        function loadVideo2() {
+            const video2 = document.getElementById('video2');
+            const videoUrl = '/static/cache/videos/cam1_1752786122_492b95ae.mp4';
+            
+            log('Video 2: Setting source to ' + videoUrl);
+            video2.src = videoUrl;
+            video2.load();
+            document.getElementById('status2').textContent = 'Status: Loading...';
+        }
+
+        function loadVideoWithEvents() {
+            const video2 = document.getElementById('video2');
+            const videoUrl = '/static/cache/videos/cam1_1752786122_492b95ae.mp4';
+            
+            // Clear previous event listeners
+            video2.onloadstart = null;
+            video2.oncanplay = null;
+            video2.onerror = null;
+            
+            // Add event listeners
+            video2.onloadstart = () => {
+                log('Video 2: Load started (with events)');
+                document.getElementById('status2').textContent = 'Status: Loading...';
+            };
+            video2.oncanplay = () => {
+                log('Video 2: Can play (with events)');
+                document.getElementById('status2').textContent = 'Status: Ready to play';
+            };
+            video2.onerror = (e) => {
+                log(`Video 2: Error - ${video2.error?.message || 'Unknown error'}`);
+                document.getElementById('status2').textContent = 'Status: Error loading video';
+            };
+            
+            log('Video 2: Setting source with event handlers');
+            video2.src = videoUrl;
+            video2.load();
+        }
+
+        // Test 3: React-style loading
+        function loadVideo3() {
+            const video3 = document.getElementById('video3');
+            const videoUrl = '/static/cache/videos/cam1_1752786122_492b95ae.mp4';
+            
+            // React-style event handlers
+            const handleLoadStart = () => {
+                log('Video 3: Load started (React style)');
+                document.getElementById('status3').textContent = 'Status: Loading...';
+            };
+            
+            const handleCanPlay = () => {
+                log('Video 3: Can play (React style)');
+                document.getElementById('status3').textContent = 'Status: Ready to play';
+            };
+            
+            const handleError = (event) => {
+                log(`Video 3: Error (React style) - ${event.target.error?.message || 'Unknown error'}`);
+                document.getElementById('status3').textContent = 'Status: Error loading video';
+            };
+            
+            video3.addEventListener('loadstart', handleLoadStart);
+            video3.addEventListener('canplay', handleCanPlay);
+            video3.addEventListener('error', handleError);
+            
+            // Create source element like React does
+            video3.innerHTML = `<source src="${videoUrl}" type="video/mp4">`;
+            
+            log('Video 3: Setting source React style');
+            document.getElementById('status3').textContent = 'Status: Loading...';
+        }
+
+        // Test network request
+        fetch('/static/cache/videos/cam1_1752786122_492b95ae.mp4', { method: 'HEAD' })
+            .then(response => {
+                log(`Network test: Video accessible - Status ${response.status}`);
+            })
+            .catch(error => {
+                log(`Network test: Error accessing video - ${error.message}`);
+            });
+    </script>
+</body>
+</html>

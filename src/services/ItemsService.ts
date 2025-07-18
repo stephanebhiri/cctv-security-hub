@@ -17,6 +17,22 @@ export interface Item {
   group: string;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  meta: {
+    timestamp: string;
+    count?: number;
+    endpoint?: string;
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+    hasNextPage?: boolean;
+    hasPrevPage?: boolean;
+  };
+}
+
 export class ItemsService {
   async getItems(): Promise<Item[]> {
     try {
@@ -26,7 +42,16 @@ export class ItemsService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const apiResponse: ApiResponse<Item[]> = await response.json();
+      
+      // Handle both old format (direct array) and new format (with success/data/meta)
+      if (apiResponse.success !== undefined) {
+        // New API format
+        return apiResponse.data;
+      } else {
+        // Legacy format (direct array) - for backward compatibility
+        return apiResponse as unknown as Item[];
+      }
     } catch (error) {
       console.error('Failed to fetch items:', error);
       throw error;

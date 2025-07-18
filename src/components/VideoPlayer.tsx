@@ -34,6 +34,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onError, isSearchin
     console.log('✅ Video ready to play:', videoUrl);
   };
 
+  const handleLoadedMetadata = () => {
+    console.log('📊 Video metadata loaded:', videoUrl);
+  };
+
+  const handleProgress = () => {
+    console.log('⏳ Video download progress:', videoUrl);
+  };
+
   if (!videoUrl) {
     console.log('❌ VideoPlayer: No video URL provided:', videoUrl);
     return (
@@ -155,12 +163,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onError, isSearchin
         onError={handleError}
         onLoadStart={handleLoadStart}
         onCanPlay={handleCanPlay}
+        onLoadedMetadata={handleLoadedMetadata}
+        onProgress={handleProgress}
         preload="metadata"
         key={videoUrl}
-      >
-        <source src={videoUrl} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+        src={videoUrl}
+      />
     </div>
   );
 };
