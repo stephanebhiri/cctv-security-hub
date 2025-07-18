@@ -40,6 +40,9 @@ body {
   margin-bottom: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .app-title {
@@ -55,6 +58,35 @@ body {
   color: #4a5568;
   font-weight: 500;
   letter-spacing: 0.025em;
+}
+
+/* Navigation Buttons */
+.app-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-button {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.nav-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.nav-button.active {
+  background: #4c51bf;
+  box-shadow: 0 2px 8px rgba(76, 81, 191, 0.4);
 }
 
 /* Main Content */

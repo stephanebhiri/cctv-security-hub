@@ -35,9 +35,11 @@ const itemsRoutes = require('./routes/items');
 const cctvRoutes = require('./routes/cctv');
 const cacheRoutes = require('./routes/cache');
 const performanceRoutes = require('./routes/performance');
+const historyRoutes = require('./routes/history');
 
 // Import utils
 const { startCacheCleanup } = require('./utils/fileTools');
+const pool = require('./config/database');
 
 const PORT = config.server.port;
 
@@ -93,6 +95,39 @@ app.use('/static', (req, res, next) => {
 app.use('/api/items', itemsRoutes);
 app.use('/api/cctv', cctvRoutes);
 app.use('/api/performance', performanceRoutes);
+// Simple history endpoint - direct implementation with proper formatting
+app.get('/api/history', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        item.designation,
+        item.inventory_code,
+        DATE_FORMAT(CONVERT_TZ(hist.dep,'GMT','Europe/Paris'),'%d/%m/%Y à %Hh %imin %ss') as dep,
+        DATE_FORMAT(CONVERT_TZ(hist.ret,'GMT','Europe/Paris'),'%d/%m/%Y à %Hh %imin %ss') as ret,
+        UNIX_TIMESTAMP(hist.dep) as depposix,
+        UNIX_TIMESTAMP(hist.ret) as retposix,
+        hist.antenna_dep,
+        hist.antenna_ret,
+        TIME_FORMAT(TIMEDIFF(hist.ret, hist.dep), '%Hh %imin %ss') as delai,
+        TIME_TO_SEC(TIMEDIFF(NOW(), hist.ret)) as days,
+        groupname.group_name as \`group\`,
+        groupname.group_name as group_name,
+        item.group_id
+      FROM hist
+      INNER JOIN item ON item.epc = hist.epchist
+      INNER JOIN groupname ON item.group_id = groupname.group_id
+      WHERE item.group_id <> 9 AND hist.dep IS NOT NULL AND hist.ret IS NOT NULL
+      ORDER BY hist.ret DESC
+      LIMIT 100
+    `;
+    
+    const [rows] = await pool.execute(query);
+    res.json({ success: true, data: { items: rows } });
+  } catch (error) {
+    console.error('History API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Conditional routes based on features
 if (features.enableCacheEndpoints) {
@@ -155,6 +190,7 @@ app.get('/api/metrics', (req, res) => {
 app.get('/api/metrics/json', (req, res) => {
   res.json(metricsCollector.getSummary());
 });
+
 
 // Video requests are now handled by the middleware above, no need for this route
 

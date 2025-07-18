@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { CCTVService } from '../services/CCTVService';
 import '../styles/surveillance.css';
 
@@ -33,8 +33,6 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
   onClose
 }) => {
   // État minimal
-  // No longer needed - we use timelineValue and seekToTimestamp
-  // const [currentTimestamp, setCurrentTimestamp] = useState(targetTimestamp);
   const [isPlaying, setIsPlaying] = useState(false);
   const [cameras, setCameras] = useState<CameraData[]>([
     { id: 1, playlist: [], currentVideoIndex: 0, loading: true, error: null },
@@ -48,11 +46,28 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
   // Timeline state for smooth scrubbing
   const [timelineValue, setTimelineValue] = useState(targetTimestamp);
 
-  const cctvService = new CCTVService();
+  // Service instance - memoized to prevent recreation on every render
+  const cctvService = useMemo(() => new CCTVService(), []);
+
+  // Video refs - proper React way instead of querySelector
+  const videoRefs = useRef<{ [key: number]: HTMLVideoElement | null }>({});
+
+  // Constants to avoid magic numbers
+  const TIMELINE_RANGE_MINUTES = 10; // ±10 minutes
+  const TIMELINE_RANGE_SECONDS = TIMELINE_RANGE_MINUTES * 60; // 600 seconds
+  const NAVIGATION_STEP_SECONDS = 120; // 2 minutes
+  const VIDEO_CLIP_DURATION = 120; // 2 minutes per clip
+
+  // Debug helper - only log in development
+  const debugLog = (message: string) => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      console.log(message);
+    }
+  };
 
   // PLAYLIST-based seeking (like cctvplayer.js)
   const seekToTimestamp = (timestamp: number) => {
-    console.log(`⏩ PLAYLIST SEEK to timestamp: ${timestamp} (${new Date(timestamp * 1000).toLocaleTimeString()})`);
+    debugLog(`⏩ PLAYLIST SEEK to timestamp: ${timestamp} (${new Date(timestamp * 1000).toLocaleTimeString()})`);
     
     setCameras(prevCameras => {
       return prevCameras.map(camera => {
@@ -88,25 +103,25 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           targetTimeInVideo = camera.playlist[targetVideoIndex].duration - 1;
         }
         
-        console.log(`📺 Camera ${camera.id}: Video ${targetVideoIndex}/${camera.playlist.length} at ${targetTimeInVideo.toFixed(1)}s`);
+        debugLog(`📺 Camera ${camera.id}: Video ${targetVideoIndex}/${camera.playlist.length} at ${targetTimeInVideo.toFixed(1)}s`);
         
         // Update video src ONLY if changing clips, otherwise use currentTime
         setTimeout(() => {
-          const videoElement = document.querySelector(`#camera-${camera.id}-video`) as HTMLVideoElement;
+          const videoElement = videoRefs.current[camera.id];
           if (videoElement && camera.playlist[targetVideoIndex]) {
             const targetClip = camera.playlist[targetVideoIndex];
             
             // Check if we need to switch clips
             if (targetVideoIndex !== camera.currentVideoIndex) {
-              console.log(`🔄 CLIP SWITCH: Camera ${camera.id} from clip ${camera.currentVideoIndex} to ${targetVideoIndex}`);
+              debugLog(`🔄 CLIP SWITCH: Camera ${camera.id} from clip ${camera.currentVideoIndex} to ${targetVideoIndex}`);
               videoElement.src = targetClip.url;
               videoElement.addEventListener('loadeddata', () => {
                 videoElement.currentTime = targetTimeInVideo;
-                console.log(`⏩ SEEK after clip switch: ${targetTimeInVideo.toFixed(1)}s`);
+                debugLog(`⏩ SEEK after clip switch: ${targetTimeInVideo.toFixed(1)}s`);
               }, { once: true });
             } else {
               // Same clip - just seek with currentTime (SMOOTH!)
-              console.log(`⏩ SMOOTH SEEK: Camera ${camera.id} to ${targetTimeInVideo.toFixed(1)}s within same clip`);
+              debugLog(`⏩ SMOOTH SEEK: Camera ${camera.id} to ${targetTimeInVideo.toFixed(1)}s within same clip`);
               videoElement.currentTime = targetTimeInVideo;
             }
           }
@@ -134,7 +149,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           playlist.push({
             url: videoUrl,
             startTime: videoTimestamp,
-            duration: 120, // 2 minutes per clip
+            duration: VIDEO_CLIP_DURATION,
             timestamp: videoTimestamp
           });
         });
@@ -142,21 +157,21 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
         // Sort by timestamp
         playlist.sort((a, b) => a.timestamp - b.timestamp);
         
-        console.log(`📺 Camera ${cameraId} playlist: ${playlist.length} clips from ${new Date(playlist[0]?.timestamp * 1000).toLocaleTimeString()} to ${new Date(playlist[playlist.length - 1]?.timestamp * 1000).toLocaleTimeString()}`);
+        debugLog(`📺 Camera ${cameraId} playlist: ${playlist.length} clips from ${new Date(playlist[0]?.timestamp * 1000).toLocaleTimeString()} to ${new Date(playlist[playlist.length - 1]?.timestamp * 1000).toLocaleTimeString()}`);
         
         return playlist;
       }
       
       return [];
     } catch (error) {
-      console.error(`Error loading playlist for camera ${cameraId}:`, error);
+      debugLog(`Error loading playlist for camera ${cameraId}: ${error}`);
       return [];
     }
-  }, []); // Empty deps - cctvService is stable
+  }, [cctvService]); // Proper deps - include cctvService
 
   // Load playlists for all cameras (like cctvplayer.js multi-playlist endpoint)
   const loadVideos = useCallback(async (timestamp: number) => {
-    console.log(`🎬 Loading playlists for all cameras around: ${timestamp}`);
+    debugLog(`🎬 Loading playlists for all cameras around: ${timestamp}`);
     
     setCameras(prev => prev.map(cam => ({ ...cam, loading: true, error: null })));
     
@@ -202,26 +217,26 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
 
   // Auto-load once on mount - but properly managed
   useEffect(() => {
-    console.log(`🎬 Auto-loading videos on mount for smooth scrubbing`);
+    debugLog(`🎬 Auto-loading videos on mount for smooth scrubbing`);
     loadVideos(targetTimestamp);
-  }, []); // Empty deps array - truly load only once
+  }, [loadVideos, targetTimestamp]); // Proper deps array
   
   // Manual reload function
   const handleLoadVideos = async () => {
-    console.log(`🎬 Manual reload triggered`);
+    debugLog(`🎬 Manual reload triggered`);
     await loadVideos(targetTimestamp);
   };
 
   // Synchronisation simple : seek to initial position when videos are loaded ONCE
   const syncVideos = () => {
-    console.log(`🔄 Video loaded - no auto-seek to avoid infinite loop`);
+    debugLog(`🔄 Video loaded - no auto-seek to avoid infinite loop`);
     // No auto-seek to avoid infinite loop - user will use timeline manually
   };
 
   // Navigation with smooth seeking (10 min range)
   const goToPrevious = () => {
-    const newTimestamp = timelineValue - 120; // 2 minutes précédent
-    const minTimestamp = targetTimestamp - 600; // 10 min avant
+    const newTimestamp = timelineValue - NAVIGATION_STEP_SECONDS;
+    const minTimestamp = targetTimestamp - TIMELINE_RANGE_SECONDS;
     
     if (newTimestamp >= minTimestamp) {
       setTimelineValue(newTimestamp);
@@ -230,8 +245,8 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
   };
 
   const goToNext = () => {
-    const newTimestamp = timelineValue + 120; // 2 minutes suivant
-    const maxTimestamp = targetTimestamp + 600; // 10 min après
+    const newTimestamp = timelineValue + NAVIGATION_STEP_SECONDS;
+    const maxTimestamp = targetTimestamp + TIMELINE_RANGE_SECONDS;
     
     if (newTimestamp <= maxTimestamp) {
       setTimelineValue(newTimestamp);
@@ -241,18 +256,18 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
 
   // Play/Pause
   const togglePlayPause = () => {
-    const videoElements = document.querySelectorAll('.sync-video');
+    const videoElements = Object.values(videoRefs.current).filter(Boolean) as HTMLVideoElement[];
     
     if (isPlaying) {
-      videoElements.forEach((video: any) => video.pause());
+      videoElements.forEach(video => video.pause());
       setIsPlaying(false);
     } else {
       // Sync avant de jouer
       syncVideos();
       
-      videoElements.forEach((video: any) => {
+      videoElements.forEach(video => {
         if (video.readyState >= 2) {
-          video.play().catch(console.error);
+          video.play().catch(err => debugLog(`Play error: ${err}`));
         }
       });
       setIsPlaying(true);
@@ -261,7 +276,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
 
   const handleTimelineChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newTimestamp = Number(event.target.value);
-    console.log(`🎯 IMMEDIATE SEEK: ${newTimestamp} (smooth scrubbing)`);
+    debugLog(`🎯 IMMEDIATE SEEK: ${newTimestamp} (smooth scrubbing)`);
     setTimelineValue(newTimestamp);
     setIsPlaying(false);
     
@@ -304,7 +319,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
         <div className="controls-row">
           <button 
             onClick={goToPrevious}
-            disabled={timelineValue <= targetTimestamp - 600}
+            disabled={timelineValue <= targetTimestamp - TIMELINE_RANGE_SECONDS}
             className="control-button"
           >
             ⏮️ Précédent
@@ -319,7 +334,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           
           <button 
             onClick={goToNext}
-            disabled={timelineValue >= targetTimestamp + 600}
+            disabled={timelineValue >= targetTimestamp + TIMELINE_RANGE_SECONDS}
             className="control-button"
           >
             Suivant ⏭️
@@ -346,8 +361,8 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           
           <input
             type="range"
-            min={targetTimestamp - 600}
-            max={targetTimestamp + 600}
+            min={targetTimestamp - TIMELINE_RANGE_SECONDS}
+            max={targetTimestamp + TIMELINE_RANGE_SECONDS}
             value={timelineValue}
             onChange={handleTimelineChange}
             className="timeline-slider"
@@ -377,7 +392,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
             
             {camera.playlist.length > 0 && !camera.loading && (
               <video
-                id={`camera-${camera.id}-video`}
+                ref={(el) => { videoRefs.current[camera.id] = el; }}
                 className="sync-video"
                 src={camera.playlist[camera.currentVideoIndex]?.url || ''}
                 muted

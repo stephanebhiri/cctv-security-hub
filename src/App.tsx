@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CCTVService } from './services/CCTVService';
 import SimpleMultiCameraView from './components/SimpleMultiCameraView';
 import ItemsSection from './components/ItemsSection';
+import HistoryPage from './components/HistoryPage';
 import { automationAPI } from './api/AutomationAPI';
 import './App.css';
 
@@ -12,6 +13,7 @@ const App: React.FC = () => {
   const [videoSectionVisible, setVideoSectionVisible] = useState(false);
   const [currentItemName, setCurrentItemName] = useState<string>('');
   const [loadingMessage, setLoadingMessage] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<'live' | 'history'>('live');
 
   const cctvService = new CCTVService();
 
@@ -188,6 +190,20 @@ const App: React.FC = () => {
           <h1 className="app-title">📹 CCTV SECURITY HUB</h1>
           <p className="app-subtitle">SURVEILLANCE SYSTEM • REAL-TIME MONITORING</p>
         </div>
+        <nav className="app-nav">
+          <button 
+            onClick={() => setCurrentPage('live')}
+            className={`nav-button ${currentPage === 'live' ? 'active' : ''}`}
+          >
+            📡 Live View
+          </button>
+          <button 
+            onClick={() => setCurrentPage('history')}
+            className={`nav-button ${currentPage === 'history' ? 'active' : ''}`}
+          >
+            📋 History
+          </button>
+        </nav>
       </header>
 
       <main className="main-content">
@@ -204,79 +220,86 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Developer Tools */}
-        <div className="dev-tools">
-          <div className="dev-tools-header">
-            🛠️ DEVELOPER TOOLS
-          </div>
-          <div className="dev-tools-grid">
-            <button 
-              onClick={handleTestSlowResponse}
-              disabled={loading}
-              className="dev-button test-slow"
-            >
-              🐌 Test Slow (6s)
-            </button>
-            <button 
-              onClick={handleTest404Response}
-              disabled={loading}
-              className="dev-button test-404"
-            >
-              🚫 Test 404
-            </button>
-            <button 
-              onClick={handleTestRapidClicks}
-              disabled={loading}
-              className="dev-button test-rapid"
-            >
-              🚀 Test Rapid
-            </button>
-            <button 
-              onClick={handleHealthCheck}
-              disabled={loading}
-              className="dev-button health"
-            >
-              ❤️ Health Check
-            </button>
-            <button 
-              onClick={handleEraseCache}
-              disabled={loading}
-              className="dev-button cache"
-            >
-              🗑️ Erase Cache
-            </button>
-          </div>
-          {loading && loadingMessage && (
-            <div className="loading-message">
-              {loadingMessage}
-            </div>
-          )}
-        </div>
-
-        {/* Items Table - Main Content */}
-        <ItemsSection 
-          onItemClick={handleItemClick}
-          onHealthCheck={handleHealthCheck}
-        />
-
-        {/* CCTV Modal - Clean Structure */}
-        {videoSectionVisible && (
-          <div className="cctv-modal">
-            <div className="modal-content">
-              {/* Direct MultiCameraView with unified header */}
-              <SimpleMultiCameraView
-                targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
-                onError={(error) => setError(error)}
-                isSearching={loading}
-                itemName={currentItemName}
-                onClose={closeVideoPlayer}
-              />
-              
-              <div className="metadata-panel">
-                📺 6 Cameras Synchronized • Use ←→ keys to navigate • Limited to 10 clips range
+        {/* Conditional Page Rendering */}
+        {currentPage === 'history' ? (
+          <HistoryPage />
+        ) : (
+          <>
+            {/* Developer Tools */}
+            <div className="dev-tools">
+              <div className="dev-tools-header">
+                🛠️ DEVELOPER TOOLS
               </div>
+              <div className="dev-tools-grid">
+                <button 
+                  onClick={handleTestSlowResponse}
+                  disabled={loading}
+                  className="dev-button test-slow"
+                >
+                  🐌 Test Slow (6s)
+                </button>
+                <button 
+                  onClick={handleTest404Response}
+                  disabled={loading}
+                  className="dev-button test-404"
+                >
+                  🚫 Test 404
+                </button>
+                <button 
+                  onClick={handleTestRapidClicks}
+                  disabled={loading}
+                  className="dev-button test-rapid"
+                >
+                  🚀 Test Rapid
+                </button>
+                <button 
+                  onClick={handleHealthCheck}
+                  disabled={loading}
+                  className="dev-button health"
+                >
+                  ❤️ Health Check
+                </button>
+                <button 
+                  onClick={handleEraseCache}
+                  disabled={loading}
+                  className="dev-button cache"
+                >
+                  🗑️ Erase Cache
+                </button>
+              </div>
+              {loading && loadingMessage && (
+                <div className="loading-message">
+                  {loadingMessage}
+                </div>
+              )}
             </div>
-          </div>
+
+            {/* Items Table - Main Content */}
+            <ItemsSection 
+              onItemClick={handleItemClick}
+              onHealthCheck={handleHealthCheck}
+            />
+
+            {/* CCTV Modal - Clean Structure */}
+            {videoSectionVisible && (
+              <div className="cctv-modal">
+                <div className="modal-content">
+                  {/* Direct MultiCameraView with unified header */}
+                  <SimpleMultiCameraView
+                    targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
+                    onError={(error) => setError(error)}
+                    isSearching={loading}
+                    itemName={currentItemName}
+                    onClose={closeVideoPlayer}
+                  />
+                  
+                  <div className="metadata-panel">
+                    📺 6 Cameras Synchronized • Use ←→ keys to navigate • Limited to 10 clips range
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
