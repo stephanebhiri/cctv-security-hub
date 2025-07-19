@@ -59,6 +59,33 @@ router.get('/tree', async (req, res) => {
 // Get timeline history events (like original /api/treehist)
 router.get('/treehist', async (req, res) => {
   try {
+    // Get timeScale parameter to adjust date range
+    const timeScale = req.query.timeScale || 'month';
+    let intervalClause;
+    let limitClause;
+    
+    switch (timeScale) {
+      case 'day':
+        intervalClause = 'DATE_SUB(NOW(), INTERVAL 7 DAY)';
+        limitClause = 'LIMIT 1000';
+        break;
+      case 'week':
+        intervalClause = 'DATE_SUB(NOW(), INTERVAL 2 WEEK)';
+        limitClause = 'LIMIT 1000';
+        break;
+      case 'month':
+        intervalClause = 'DATE_SUB(NOW(), INTERVAL 6 MONTH)';
+        limitClause = 'LIMIT 2000';
+        break;
+      case 'year':
+        intervalClause = 'DATE_SUB(NOW(), INTERVAL 2 YEAR)';
+        limitClause = 'LIMIT 5000';
+        break;
+      default:
+        intervalClause = 'DATE_SUB(NOW(), INTERVAL 6 MONTH)';
+        limitClause = 'LIMIT 1000';
+    }
+
     // Real database query for all timeline events with actual groups
     const query = `
       SELECT 
@@ -75,10 +102,10 @@ router.get('/treehist', async (req, res) => {
       FROM hist h
       JOIN item i ON h.epchist = i.epc 
       LEFT JOIN groupname g ON i.group_id = g.group_id
-      WHERE h.dep >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+      WHERE h.dep >= ${intervalClause}
         AND i.group_id != 9
       ORDER BY h.dep DESC
-      LIMIT 1000
+      ${limitClause}
     `;
 
     const [rows] = await pool.execute(query);
@@ -96,7 +123,8 @@ router.get('/treehist', async (req, res) => {
 
     logger.info('Timeline events data requested', { 
       eventCount: timelineEvents.length,
-      dateRange: '6 months'
+      timeScale: timeScale,
+      intervalClause: intervalClause
     });
 
     res.json(timelineEvents);

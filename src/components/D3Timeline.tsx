@@ -46,7 +46,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     d3.select(svgRef.current).selectAll("*").remove();
 
     // Set up dimensions and margins
-    const margin = { top: 40, right: 40, bottom: 60, left: 220 };
+    const margin = { top: 80, right: 40, bottom: 60, left: 220 };
     const innerWidth = width - margin.left - margin.right;
     const groupHeight = 220; // Height for 8 lanes with 25px spacing + margin
 
@@ -87,7 +87,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     
     switch (timeScale) {
       case 'day':
-        timeWindow = 24 * 60 * 60 * 1000; // 24 hours
+        timeWindow = 7 * 24 * 60 * 60 * 1000; // 7 days
         break;
       case 'week':
         timeWindow = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -108,33 +108,101 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .domain([startTime, now])
       .range([0, innerWidth]);
 
-    // Create time axis with appropriate format and ticks based on scale
-    let tickFormat, tickCount;
-    switch (timeScale) {
-      case 'day':
-        tickFormat = d3.timeFormat('%H:%M');
-        tickCount = 12;
-        break;
-      case 'week':
-        tickFormat = d3.timeFormat('%d/%m');
-        tickCount = 7;
-        break;
-      case 'month':
-        tickFormat = d3.timeFormat('%d/%m');
-        tickCount = 10;
-        break;
-      case 'year':
-        tickFormat = d3.timeFormat('%m/%Y');
-        tickCount = 12;
-        break;
-      default:
-        tickFormat = d3.timeFormat('%H:%M');
-        tickCount = 12;
-    }
+    // Adaptive time formats based on visible time range
+    const getAdaptiveTimeFormats = (domain: [Date, Date]) => {
+      const [start, end] = domain;
+      const durationMs = end.getTime() - start.getTime();
+      const durationHours = durationMs / (1000 * 60 * 60);
+      const durationDays = durationHours / 24;
+      const durationWeeks = durationDays / 7;
+      const durationMonths = durationDays / 30;
+      
+      const durationMinutes = durationHours * 60;
+      const durationSeconds = durationMinutes * 60;
+      
+      console.log('Adaptive zoom - Duration:', { durationSeconds, durationMinutes, durationHours, durationDays, durationWeeks, durationMonths });
+      
+      if (durationMinutes <= 2) {
+        // Ultra-ultra close zoom: secondes précises
+        return {
+          tickFormat: d3.timeFormat('%H:%M:%S'),
+          majorTickFormat: d3.timeFormat('%d/%m %H:%M:%S'),
+          tickCount: Math.max(8, Math.min(30, Math.floor(durationSeconds / 10))),
+          level: 'seconds'
+        };
+      } else if (durationMinutes <= 30) {
+        // Ultra close zoom: minutes fines
+        return {
+          tickFormat: d3.timeFormat('%H:%M:%S'),
+          majorTickFormat: d3.timeFormat('%d/%m %H:%M'),
+          tickCount: Math.max(10, Math.min(30, Math.floor(durationMinutes / 2))),
+          level: 'seconds'
+        };
+      } else if (durationMinutes <= 120) {
+        // Ultra close zoom: minutes and hours
+        return {
+          tickFormat: d3.timeFormat('%H:%M'),
+          majorTickFormat: d3.timeFormat('%d/%m %H:%M'),
+          tickCount: Math.max(8, Math.min(24, Math.floor(durationMinutes / 5))),
+          level: 'minutes'
+        };
+      } else if (durationHours <= 168) { // 7 jours
+        // Close zoom: hours and date
+        return {
+          tickFormat: d3.timeFormat('%H:%M'),
+          majorTickFormat: d3.timeFormat('%d/%m'),
+          tickCount: Math.max(8, Math.min(36, Math.floor(durationHours / 3))),
+          level: 'hours'
+        };
+      } else if (durationDays <= 30) {
+        // Medium zoom: days and weeks  
+        return {
+          tickFormat: d3.timeFormat('%d/%m'),
+          majorTickFormat: d3.timeFormat('%B %Y'),
+          tickCount: Math.max(10, Math.min(30, Math.floor(durationDays))),
+          level: 'days'
+        };
+      } else if (durationWeeks <= 24) {
+        // Wide zoom: weeks and months
+        return {
+          tickFormat: d3.timeFormat('%d/%m'),
+          majorTickFormat: d3.timeFormat('%B %Y'),
+          tickCount: Math.max(6, Math.min(24, Math.floor(durationWeeks))),
+          level: 'weeks'
+        };
+      } else if (durationMonths <= 48) {
+        // Very wide zoom: months and years
+        return {
+          tickFormat: d3.timeFormat('%m/%Y'),
+          majorTickFormat: d3.timeFormat('%Y'),
+          tickCount: Math.max(8, Math.min(48, Math.floor(durationMonths))),
+          level: 'months'
+        };
+      } else {
+        // Ultra wide zoom: years
+        return {
+          tickFormat: d3.timeFormat('%Y'),
+          majorTickFormat: d3.timeFormat('%Y'),
+          tickCount: Math.max(6, Math.min(20, Math.floor(durationMonths / 12))),
+          level: 'years'
+        };
+      }
+    };
+
+    // Get initial adaptive formats
+    const initialFormats = getAdaptiveTimeFormats([startTime, now]);
+    let tickFormat = initialFormats.tickFormat;
+    let majorTickFormat = initialFormats.majorTickFormat;
+    let tickCount = initialFormats.tickCount;
     
     const xAxis = d3.axisBottom(xScale)
       .tickFormat(tickFormat as any)
       .ticks(tickCount);
+    
+    // Create a major axis for date information (especially useful for 24h view)
+    const xAxisMajor = d3.axisTop(xScale)
+      .tickFormat(majorTickFormat as any)
+      .ticks(Math.max(4, Math.floor(tickCount / 3))); // Fewer major ticks
 
     // X-axis will be positioned after calculating group heights
       
@@ -310,11 +378,40 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .style('font-weight', '500')
       .style('fill', d => d.isVirtual ? '#e53e3e' : '#2d3748');
       
-    // Add X-axis at the bottom
+    // Add vertical grid lines for time reference
     g.append('g')
-      .attr('class', 'x-axis')
-      .attr('transform', `translate(0, ${cumulativeY})`)
-      .call(xAxis);
+      .attr('class', 'grid-lines')
+      .selectAll('.grid-line')
+      .data(xScale.ticks(tickCount))
+      .enter()
+      .append('line')
+      .attr('class', 'grid-line')
+      .attr('x1', d => xScale(d))
+      .attr('x2', d => xScale(d))
+      .attr('y1', -5)
+      .attr('y2', cumulativeY + 5)
+      .attr('stroke', '#e2e8f0')
+      .attr('stroke-width', 0.5)
+      .attr('stroke-dasharray', '2,2')
+      .attr('opacity', 0.7);
+
+    // Add major X-axis at the top (with date/time info)
+    g.append('g')
+      .attr('class', 'x-axis-major')
+      .attr('transform', `translate(0, -30)`)
+      .call(xAxisMajor.tickSizeOuter(0));
+    
+    // Add minor X-axis (time only for 24h view)
+    g.append('g')
+      .attr('class', 'x-axis-minor')
+      .attr('transform', `translate(0, -10)`)
+      .call(xAxis.tickSizeOuter(0));
+    
+    // Add bottom axis for reference
+    g.append('g')
+      .attr('class', 'x-axis-bottom')
+      .attr('transform', `translate(0, ${cumulativeY + 10})`)
+      .call(xAxis.tickSizeOuter(0));
 
     // Create timeline items
     console.log('Creating items with positions:', eventsWithPositions.length);
@@ -367,7 +464,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         return width;
       })
       .attr('height', 20)
-      .attr('rx', 6)
+      .attr('rx', 2)
       .attr('fill', d => d.color)
       .on('mouseover', function(event, d) {
         const duration = d.endDate ? 
@@ -477,17 +574,79 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .attr('stroke', '#ef4444')
       .attr('stroke-width', 1); // Simplified - no dashed lines or opacity
 
-    // Add zoom and pan behavior
+    // Add zoom level indicator
+    const zoomIndicator = g.append('text')
+      .attr('class', 'zoom-indicator')
+      .attr('x', innerWidth - 10)
+      .attr('y', -45)
+      .attr('text-anchor', 'end')
+      .style('font-size', '11px')
+      .style('font-weight', '500')
+      .style('fill', '#4a5568')
+      .style('background', 'rgba(255,255,255,0.8)')
+      .text(`🔍 ${initialFormats.level}`);
+
+    // Add zoom and pan behavior with mouse-centered zooming and vertical scrolling
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 50])
+      .scaleExtent([0.01, 2000]) // Zoom ultra-extrême : 100x plus puissant
+      .extent([[0, 0], [width, height]]) // Define pan boundaries
+      .filter((event) => {
+        // Allow wheel zoom, click-drag pan, but prevent right-click
+        return !event.ctrlKey && !event.button;
+      })
       .on('zoom', (event) => {
         const { transform } = event;
         
         // Update x scale with zoom transform
         const newXScale = transform.rescaleX(xScale);
         
-        // Update axis
-        g.select('.x-axis').call(xAxis.scale(newXScale) as any);
+        // Apply vertical pan (Y translation) to the main group with bounds
+        const maxVerticalPan = Math.max(0, cumulativeY - height + margin.top + margin.bottom);
+        const clampedY = Math.max(-maxVerticalPan, Math.min(0, transform.y));
+        g.attr('transform', `translate(${margin.left}, ${margin.top + clampedY})`);
+        
+        // Calculate new visible time domain for adaptive formatting
+        const newDomain = newXScale.domain();
+        const adaptiveFormats = getAdaptiveTimeFormats(newDomain);
+        
+        console.log('Zoom level changed to:', adaptiveFormats.level);
+        
+        // Update zoom level indicator
+        g.select('.zoom-indicator')
+          .text(`🔍 ${adaptiveFormats.level}`);
+        
+        // Create new axes with adaptive formats
+        const newXAxis = d3.axisBottom(newXScale)
+          .tickFormat(adaptiveFormats.tickFormat as any)
+          .ticks(adaptiveFormats.tickCount);
+        
+        const newXAxisMajor = d3.axisTop(newXScale)
+          .tickFormat(adaptiveFormats.majorTickFormat as any)
+          .ticks(Math.max(3, Math.floor(adaptiveFormats.tickCount / 3)));
+        
+        // Update axes with new adaptive formats
+        g.select('.x-axis-major').call(newXAxisMajor as any);
+        g.select('.x-axis-minor').call(newXAxis as any);
+        g.select('.x-axis-bottom').call(newXAxis as any);
+        
+        // Update grid lines with new adaptive ticks
+        const newTicks = newXScale.ticks(adaptiveFormats.tickCount);
+        
+        // Remove old grid lines and create new ones
+        g.selectAll('.grid-line').remove();
+        g.selectAll('.grid-line')
+          .data(newTicks)
+          .enter()
+          .append('line')
+          .attr('class', 'grid-line')
+          .attr('x1', d => newXScale(d))
+          .attr('x2', d => newXScale(d))
+          .attr('y1', -5)
+          .attr('y2', cumulativeY + 5)
+          .attr('stroke', '#e2e8f0')
+          .attr('stroke-width', 0.5)
+          .attr('stroke-dasharray', '2,2')
+          .attr('opacity', 0.7);
         
         // Update items positions (only X positions change during zoom, Y positions stay the same)
         zoomGroup.selectAll('.timeline-item rect')
@@ -508,8 +667,45 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           .attr('x2', newXScale(currentTime));
       });
 
-    // Apply zoom to SVG
-    svg.call(zoom);
+    // Apply zoom to SVG with mouse-centered behavior and vertical scrolling
+    svg.call(zoom)
+      .on('wheel.zoom', function(event) {
+        // Prevent default scrolling
+        event.preventDefault();
+        
+        const currentTransform = d3.zoomTransform(this);
+        
+        if (event.shiftKey) {
+          // Shift + wheel = vertical scroll
+          const deltaY = event.deltaY > 0 ? 30 : -30;
+          const maxVerticalPan = Math.max(0, cumulativeY - height + margin.top + margin.bottom);
+          const newY = Math.max(-maxVerticalPan, Math.min(0, currentTransform.y + deltaY));
+          
+          const newTransform = d3.zoomIdentity
+            .translate(currentTransform.x, newY)
+            .scale(currentTransform.k);
+            
+          d3.select(this).call(zoom.transform, newTransform);
+        } else {
+          // Normal wheel = horizontal zoom centered on mouse
+          const [mouseX] = d3.pointer(event, this);
+          const centerX = mouseX - margin.left;
+          
+          // Apply zoom centered on mouse position (reduced sensitivity)
+          const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
+          
+          // Calculate new transform to center zoom on mouse
+          const newK = Math.max(0.01, Math.min(2000, currentTransform.k * scaleFactor));
+          const newX = centerX - (centerX - currentTransform.x) * (newK / currentTransform.k);
+          
+          const newTransform = d3.zoomIdentity
+            .translate(newX, currentTransform.y)
+            .scale(newK);
+          
+          // Apply the new transform
+          d3.select(this).call(zoom.transform, newTransform);
+        }
+      });
 
     setIsLoading(false);
 

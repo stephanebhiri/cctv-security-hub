@@ -6,7 +6,9 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* Override default react-calendar-timeline styles */
@@ -33,6 +35,17 @@
 /* Timeline canvas styling */
 .react-calendar-timeline .rct-canvas {
   background: #fafafa;
+  cursor: grab;
+}
+
+.react-calendar-timeline .rct-canvas:active {
+  cursor: grabbing;
+}
+
+/* Improve scrolling performance */
+.react-calendar-timeline .rct-scroll {
+  will-change: transform;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Group lanes */
@@ -166,4 +179,48 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Zoom controls */
+.react-calendar-timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(248, 250, 252, 0.95);
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 16px 16px 0 0;
+}
+
+.zoom-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.zoom-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.zoom-info {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+.react-calendar-timeline-wrapper {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }

@@ -53,7 +53,7 @@ const TimelinePage: React.FC = () => {
 
         const [groupsResponse, eventsResponse] = await Promise.all([
           fetch('/api/tree', { headers: { 'Accept': 'application/json' } }),
-          fetch('/api/treehist', { headers: { 'Accept': 'application/json' } })
+          fetch(`/api/treehist?timeScale=${timeScale}`, { headers: { 'Accept': 'application/json' } })
         ]);
 
         if (!groupsResponse.ok || !eventsResponse.ok) {
@@ -74,7 +74,7 @@ const TimelinePage: React.FC = () => {
     };
 
     fetchTimelineData();
-  }, []);
+  }, [timeScale]);
 
   // Create timeline when data is available AND ref is ready AND vis timeline is selected
   useEffect(() => {

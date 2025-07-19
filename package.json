@@ -20,7 +20,7 @@
     "node-fetch": "^2.6.7",
     "on-finished": "^2.4.1",
     "react": "^18.2.0",
-    "react-calendar-timeline": "^0.30.0-beta.3",
+    "react-calendar-timeline": "^0.28.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.0",
@@ -34,7 +34,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "server": "node server.js",
+    "server": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm start\""
   },
   "eslintConfig": {

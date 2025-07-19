@@ -298,3 +298,37 @@
     min-height: 400px;
   }
 }
+
+/* Group folder styling for vis-timeline */
+.timeline-group-folder {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.group-toggle {
+  font-size: 12px;
+  transition: transform 0.2s;
+  display: inline-block;
+  color: #667eea;
+  font-weight: bold;
+}
+
+.timeline-group-folder:hover .group-toggle {
+  transform: scale(1.2);
+}
+
+.timeline-group-folder:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+/* Collapsed items styling */
+.vis-item.collapsed-item {
+  display: none !important;
+}
+
+/* Group visual states */
+.vis-labelset .vis-label.collapsed {
+  opacity: 0.6;
+}
