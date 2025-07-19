@@ -36,9 +36,22 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Throttle adaptive format calculations
+  const lastFormatCalculation = useRef<{domain: [Date, Date], result: any}>({
+    domain: [new Date(), new Date()],
+    result: null
+  });
 
   useEffect(() => {
     if (!svgRef.current || !groups.length || !events.length) return;
+    
+    // Detect if mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Track number of touch points for mobile
+    let activeTouches = 0;
+    let lastValidY = 0; // Store last Y position for when we block vertical pan
 
     setIsLoading(true);
     
@@ -108,10 +121,17 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .domain([startTime, now])
       .range([0, innerWidth]);
 
-    // Adaptive time formats based on visible time range
+    // Adaptive time formats based on visible time range (with throttling)
     const getAdaptiveTimeFormats = (domain: [Date, Date]) => {
       const [start, end] = domain;
       const durationMs = end.getTime() - start.getTime();
+      
+      // Throttle: Skip recalculation if duration change < 10%
+      const lastDuration = lastFormatCalculation.current.domain[1].getTime() - lastFormatCalculation.current.domain[0].getTime();
+      if (lastFormatCalculation.current.result && Math.abs(durationMs - lastDuration) / lastDuration < 0.1) {
+        return lastFormatCalculation.current.result;
+      }
+      
       const durationHours = durationMs / (1000 * 60 * 60);
       const durationDays = durationHours / 24;
       const durationWeeks = durationDays / 7;
@@ -122,9 +142,11 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       
       console.log('Adaptive zoom - Duration:', { durationSeconds, durationMinutes, durationHours, durationDays, durationWeeks, durationMonths });
       
+      let result;
+      
       if (durationMinutes <= 2) {
         // Ultra-ultra close zoom: secondes précises
-        return {
+        result = {
           tickFormat: d3.timeFormat('%H:%M:%S'),
           majorTickFormat: d3.timeFormat('%d/%m %H:%M:%S'),
           tickCount: Math.max(8, Math.min(30, Math.floor(durationSeconds / 10))),
@@ -132,7 +154,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationMinutes <= 30) {
         // Ultra close zoom: minutes fines
-        return {
+        result = {
           tickFormat: d3.timeFormat('%H:%M:%S'),
           majorTickFormat: d3.timeFormat('%d/%m %H:%M'),
           tickCount: Math.max(10, Math.min(30, Math.floor(durationMinutes / 2))),
@@ -140,7 +162,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationMinutes <= 120) {
         // Ultra close zoom: minutes and hours
-        return {
+        result = {
           tickFormat: d3.timeFormat('%H:%M'),
           majorTickFormat: d3.timeFormat('%d/%m %H:%M'),
           tickCount: Math.max(8, Math.min(24, Math.floor(durationMinutes / 5))),
@@ -148,7 +170,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationHours <= 168) { // 7 jours
         // Close zoom: hours and date
-        return {
+        result = {
           tickFormat: d3.timeFormat('%H:%M'),
           majorTickFormat: d3.timeFormat('%d/%m'),
           tickCount: Math.max(8, Math.min(36, Math.floor(durationHours / 3))),
@@ -156,7 +178,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationDays <= 30) {
         // Medium zoom: days and weeks  
-        return {
+        result = {
           tickFormat: d3.timeFormat('%d/%m'),
           majorTickFormat: d3.timeFormat('%B %Y'),
           tickCount: Math.max(10, Math.min(30, Math.floor(durationDays))),
@@ -164,7 +186,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationWeeks <= 24) {
         // Wide zoom: weeks and months
-        return {
+        result = {
           tickFormat: d3.timeFormat('%d/%m'),
           majorTickFormat: d3.timeFormat('%B %Y'),
           tickCount: Math.max(6, Math.min(24, Math.floor(durationWeeks))),
@@ -172,7 +194,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else if (durationMonths <= 48) {
         // Very wide zoom: months and years
-        return {
+        result = {
           tickFormat: d3.timeFormat('%m/%Y'),
           majorTickFormat: d3.timeFormat('%Y'),
           tickCount: Math.max(8, Math.min(48, Math.floor(durationMonths))),
@@ -180,13 +202,17 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         };
       } else {
         // Ultra wide zoom: years
-        return {
+        result = {
           tickFormat: d3.timeFormat('%Y'),
           majorTickFormat: d3.timeFormat('%Y'),
           tickCount: Math.max(6, Math.min(20, Math.floor(durationMonths / 12))),
           level: 'years'
         };
       }
+      
+      // Cache the result
+      lastFormatCalculation.current = { domain, result };
+      return result;
     };
 
     // Get initial adaptive formats
@@ -224,7 +250,6 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     // Count unique groups including virtual ones from events
     const eventGroupIds = new Set(recentEvents.map(e => e.section_id.toString()));
     const virtualGroups = Array.from(eventGroupIds).filter(gId => !groups.some(g => g.key === gId));
-    const totalGroupsCount = groups.length + virtualGroups.length;
     
     // Rendering will be done after lane assignment
 
@@ -232,6 +257,11 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     const zoomGroup = g.append('g')
       .attr('class', 'zoom-group')
       .attr('clip-path', 'url(#timeline-clip)');
+    
+    // Create fixed group for labels that don't move with vertical scroll
+    const fixedLabelsGroup = svg.append('g')
+      .attr('class', 'fixed-labels')
+      .attr('transform', `translate(0, ${margin.top})`);
 
     // Dedicated lane assignment - each item gets its own permanent lane
     const eventsWithPositions: any[] = [];
@@ -310,7 +340,6 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     sortedEvents.forEach(event => {
       const groupId = event.section_id.toString();
       const rfidId = event.rfid_tag_id;
-      let groupIndex = groups.findIndex(g => g.key === groupId);
       
       // Use adaptive group positioning
       const baseY = groupYPositions[groupId] || 0;
@@ -363,20 +392,20 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .attr('height', d => groupHeights[d.key] - 2)
       .attr('fill', (d, i) => i % 2 === 0 ? '#f8fafc' : '#ffffff');
     
-    // Add group labels
-    svg.append('g')
+    // Add group labels to fixed group (will follow vertical scroll)
+    const groupLabels = fixedLabelsGroup
       .selectAll('.group-label')
       .data(allGroupData)
       .enter()
       .append('text')
       .attr('class', 'group-label')
-      .attr('x', 10)
-      .attr('y', d => margin.top + groupYPositions[d.key] + groupHeights[d.key]/2)
+      .attr('x', 10) // Left side
+      .attr('y', d => groupYPositions[d.key] + groupHeights[d.key]/2)
       .attr('dy', '0.35em')
       .text(d => d.label)
       .style('font-size', '14px')
-      .style('font-weight', '500')
-      .style('fill', d => d.isVirtual ? '#e53e3e' : '#2d3748');
+      .style('font-weight', '600') // Bold for group names
+      .style('fill', d => d.isVirtual ? '#e53e3e' : '#1a202c');
       
     // Add vertical grid lines for time reference
     g.append('g')
@@ -540,7 +569,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     
     // Create lane background and labels
     Object.entries(laneLabels).forEach(([laneKey, lane]) => {
-      const [groupId, laneNum] = laneKey.split('-');
+      const [groupId] = laneKey.split('-');
       
       // Simplified lane background 
       zoomGroup.append('rect')
@@ -551,16 +580,16 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
         .attr('fill', 'rgba(255,255,255,0.1)')
         .style('pointer-events', 'none');
       
-      // Lane label text with group info for debugging
-      zoomGroup.append('text')
-        .attr('x', 10) // Left margin
+      // Lane label text with group info - FIXED position, décalé à droite
+      fixedLabelsGroup.append('text')
+        .attr('x', 120) // Décalé à droite pour éviter superposition avec labels groupes
         .attr('y', lane.y + 10)
         .attr('dy', '0.35em')
-        .text(`[G${groupId}] ${lane.text}`) // Show group ID to see the separation
-        .style('font-size', '11px')
-        .style('font-weight', '500')
-        .style('fill', '#000000')
-        .style('pointer-events', 'none'); // Removed text-shadow for performance
+        .text(`${lane.text}`) // Sans le préfixe [G...] pour plus de clarté
+        .style('font-size', '10px')
+        .style('font-weight', '400')
+        .style('fill', '#4a5568')
+        .style('pointer-events', 'none');
     });
 
     // Add current time indicator
@@ -591,19 +620,57 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .scaleExtent([0.01, 2000]) // Zoom ultra-extrême : 100x plus puissant
       .extent([[0, 0], [width, height]]) // Define pan boundaries
       .filter((event) => {
-        // Allow wheel zoom, click-drag pan, but prevent right-click
+        // Allow all events except right-click
         return !event.ctrlKey && !event.button;
       })
+      .touchable(true)
       .on('zoom', (event) => {
-        const { transform } = event;
+        const { transform, sourceEvent } = event;
         
         // Update x scale with zoom transform
         const newXScale = transform.rescaleX(xScale);
         
+        // Check if this is a touch event
+        const isTouchEvent = sourceEvent && sourceEvent.type && sourceEvent.type.startsWith('touch');
+        const touchCount = isTouchEvent && sourceEvent.touches ? sourceEvent.touches.length : 0;
+        
+        if (isMobile && isTouchEvent) {
+          console.log('Mobile touch event:', sourceEvent.type, 'touches:', touchCount);
+        }
+        
         // Apply vertical pan (Y translation) to the main group with bounds
-        const maxVerticalPan = Math.max(0, cumulativeY - height + margin.top + margin.bottom);
-        const clampedY = Math.max(-maxVerticalPan, Math.min(0, transform.y));
+        let clampedY = 0;
+        
+        // On mobile: allow vertical pan only with 1 finger (no pinch zoom)
+        // On desktop: always allow vertical pan
+        const allowVerticalPan = !isMobile || !isTouchEvent || touchCount <= 1;
+        
+        if (allowVerticalPan) {
+          const maxVerticalPan = Math.max(0, cumulativeY - height + margin.top + margin.bottom);
+          clampedY = Math.max(-maxVerticalPan, Math.min(0, transform.y));
+          lastValidY = clampedY; // Store valid Y for when we need to block
+        } else {
+          // When 2+ fingers are detected on mobile, use last valid Y position
+          clampedY = lastValidY;
+        }
+        
+        // Apply vertical translation to the main group
         g.attr('transform', `translate(${margin.left}, ${margin.top + clampedY})`);
+        
+        // Update group labels position to follow the scroll
+        fixedLabelsGroup.selectAll('.group-label')
+          .attr('y', function() {
+            const d = d3.select(this).datum() as any;
+            return groupYPositions[d.key] + groupHeights[d.key]/2 + clampedY;
+          });
+          
+        // Update item labels position to follow the scroll
+        fixedLabelsGroup.selectAll('text:not(.group-label)')
+          .attr('y', (d: any, i: number) => {
+            // Get original Y position from laneLabels
+            const originalY = Object.values(laneLabels)[i]?.y || 0;
+            return originalY + clampedY + 10;
+          });
         
         // Calculate new visible time domain for adaptive formatting
         const newDomain = newXScale.domain();
@@ -648,7 +715,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           .attr('stroke-dasharray', '2,2')
           .attr('opacity', 0.7);
         
-        // Update items positions (only X positions change during zoom, Y positions stay the same)
+        // Update items positions using the new scale
         zoomGroup.selectAll('.timeline-item rect')
           .attr('x', (d: any) => newXScale(d.startDate))
           .attr('width', (d: any) => d.endDate ? Math.max(newXScale(d.endDate) - newXScale(d.startDate), 2) : 0);
@@ -672,6 +739,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .on('wheel.zoom', function(event) {
         // Prevent default scrolling
         event.preventDefault();
+        event.stopPropagation();
         
         const currentTransform = d3.zoomTransform(this);
         
