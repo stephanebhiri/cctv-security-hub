@@ -2,10 +2,12 @@ const fetch = require('node-fetch');
 const { DOMParser } = require('xmldom');
 const { CCTV } = require('../config/constants');
 const { authenticate } = require('./auth');
+const { utcToLocalDate, localDateToUTC } = require('./timezoneUtils');
 
 // Helper function to format date path
+// Converts UTC timestamp to local CEST/CET time for CCTV server paths
 function formatDatePath(timestamp) {
-  const date = new Date(timestamp * 1000);
+  const date = utcToLocalDate(timestamp);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -55,10 +57,11 @@ function extractTimestampFromFilename(filename) {
         second = parseInt(match[6]);
       }
       
-      const date = new Date(year, month, day, hour, minute, second);
-      const timestamp = Math.floor(date.getTime() / 1000);
+      // Convert local CCTV filename time to UTC timestamp
+      const timestamp = localDateToUTC(year, month, day, hour, minute, second);
+      const localDate = new Date(year, month, day, hour, minute, second);
       
-      console.log(`✅ Extracted timestamp: ${timestamp} (${date.toISOString()}) from ${filename}`);
+      console.log(`✅ Extracted timestamp: ${timestamp} UTC (local: ${localDate.toISOString()}) from ${filename}`);
       return timestamp;
     }
   }

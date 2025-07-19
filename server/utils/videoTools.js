@@ -5,6 +5,7 @@ const { CCTV } = require('../config/constants');
 const { authenticate } = require('./auth');
 const { formatDatePath, listVideosInPath } = require('./cctvApi');
 const { getDirectorySize, cleanupCache } = require('./fileTools');
+const { utcToLocalDate } = require('./timezoneUtils');
 
 // Store video metadata for on-demand downloads with LRU cache
 const videoMetadata = new LRUCache({
@@ -49,12 +50,12 @@ async function getVideosForCamera(targetTimestamp, cameraId) {
   let cameraAvailable = true;
   let cameraError = null;
 
-  // Try multiple hours around the target
+  // Try multiple hours around the target (using local time)
   for (let hourOffset = -1; hourOffset <= 1; hourOffset++) {
-    const testDate = new Date(targetTimestamp * 1000);
+    const testDate = utcToLocalDate(targetTimestamp);
     testDate.setHours(testDate.getHours() + hourOffset);
     const testHour = String(testDate.getHours()).padStart(2, '0');
-    const testDateStr = formatDatePath(Math.floor(testDate.getTime() / 1000)).date;
+    const testDateStr = formatDatePath(targetTimestamp + (hourOffset * 3600)).date;
 
     console.log(`⏰ Testing hour offset ${hourOffset}: ${testDateStr}/${testHour}`);
 
