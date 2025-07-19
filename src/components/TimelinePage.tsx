@@ -4,6 +4,7 @@ import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import '../styles/timeline.css';
 import '../styles/d3-timeline.css';
 import D3Timeline from './D3Timeline';
+import ReactCalendarTimeline from './ReactCalendarTimeline';
 
 interface TimelineItem {
   id: string;
@@ -34,7 +35,7 @@ const TimelinePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeScale, setTimeScale] = useState<'day' | 'week' | 'month' | 'year'>('week');
-  const [useD3Timeline, setUseD3Timeline] = useState(true); // Toggle between D3 and vis-timeline
+  const [timelineType, setTimelineType] = useState<'d3' | 'react-calendar' | 'vis'>('react-calendar'); // Timeline implementation type
 
   console.log('TimelinePage component rendered');
 
@@ -315,17 +316,25 @@ const TimelinePage: React.FC = () => {
           <div className="scale-buttons">
             <button 
               type="button" 
-              className={`btn-scale ${useD3Timeline ? 'active' : ''}`}
-              onClick={() => setUseD3Timeline(true)}
-              style={{ background: useD3Timeline ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
+              className={`btn-scale ${timelineType === 'react-calendar' ? 'active' : ''}`}
+              onClick={() => setTimelineType('react-calendar')}
+              style={{ background: timelineType === 'react-calendar' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
+            >
+              React Calendar
+            </button>
+            <button 
+              type="button" 
+              className={`btn-scale ${timelineType === 'd3' ? 'active' : ''}`}
+              onClick={() => setTimelineType('d3')}
+              style={{ background: timelineType === 'd3' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
             >
               D3.js
             </button>
             <button 
               type="button" 
-              className={`btn-scale ${!useD3Timeline ? 'active' : ''}`}
-              onClick={() => setUseD3Timeline(false)}
-              style={{ background: !useD3Timeline ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
+              className={`btn-scale ${timelineType === 'vis' ? 'active' : ''}`}
+              onClick={() => setTimelineType('vis')}
+              style={{ background: timelineType === 'vis' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
             >
               vis-timeline
             </button>
@@ -378,7 +387,14 @@ const TimelinePage: React.FC = () => {
       </div>
 
       <div className="timeline-wrapper">
-        {useD3Timeline && timelineData ? (
+        {timelineType === 'react-calendar' && timelineData ? (
+          <ReactCalendarTimeline
+            groups={timelineData.groups}
+            events={timelineData.events}
+            onItemClick={handleD3ItemClick}
+            timeScale={timeScale}
+          />
+        ) : timelineType === 'd3' && timelineData ? (
           <D3Timeline
             groups={timelineData.groups}
             events={timelineData.events}

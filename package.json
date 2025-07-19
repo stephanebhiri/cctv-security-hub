@@ -20,6 +20,7 @@
     "node-fetch": "^2.6.7",
     "on-finished": "^2.4.1",
     "react": "^18.2.0",
+    "react-calendar-timeline": "^0.30.0-beta.3",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.0",
