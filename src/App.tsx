@@ -13,7 +13,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [videoSectionVisible, setVideoSectionVisible] = useState(false);
   const [currentItemName, setCurrentItemName] = useState<string>('');
-  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<'live' | 'history' | 'timeline'>('live');
 
   const cctvService = new CCTVService();
@@ -95,93 +94,6 @@ const App: React.FC = () => {
     setVideoSectionVisible(false);
   };
 
-  const handleEraseCache = async () => {
-    if (!window.confirm('Êtes-vous sûr de vouloir vider le cache vidéo ?')) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await cctvService.eraseCache();
-      if (result.success) {
-        window.alert(`✅ Cache vidé avec succès !\n${result.data.filesDeleted} fichiers supprimés\n${result.data.sizeFreed}MB libérés`);
-      } else {
-        setError('Échec du vidage du cache');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec du vidage du cache');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Edge case test handlers
-  const handleTestSlowResponse = async () => {
-    setLoading(true);
-    setError(null);
-    setLoadingMessage('Testing slow response (6+ seconds)...');
-    setVideoSectionVisible(true);
-    setCurrentItemName('Slow Response Test');
-
-    try {
-      await cctvService.testSlowResponse(6000);
-      console.log('✅ Slow response test completed');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Slow response test failed');
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
-
-  const handleTest404Response = async () => {
-    setLoading(true);
-    setError(null);
-    setLoadingMessage('Testing 404 video handling...');
-    setVideoSectionVisible(true);
-    setCurrentItemName('404 Video Test');
-
-    try {
-      await cctvService.test404Response();
-      console.log('✅ 404 response test completed');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '404 response test failed');
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
-    }
-  };
-
-  const handleTestRapidClicks = async () => {
-    console.log('🚀 Testing rapid consecutive clicks...');
-    setVideoSectionVisible(true);
-    setCurrentItemName('Rapid Click Test');
-    
-    // Simulate rapid clicks on different items
-    const testItems = [
-      { timestamp: 1752567000, designation: 'Item 1', groupId: 1 },
-      { timestamp: 1752567060, designation: 'Item 2', groupId: 2 },
-      { timestamp: 1752567120, designation: 'Item 3', groupId: 3 },
-      { timestamp: 1752567180, designation: 'Item 4', groupId: 4 },
-      { timestamp: 1752567240, designation: 'Item 5', groupId: 5 }
-    ];
-    
-    // Fire rapid requests
-    for (let i = 0; i < testItems.length; i++) {
-      const item = testItems[i];
-      console.log(`📍 Rapid click ${i + 1}: ${item.designation}`);
-      
-      // Don't await - fire them rapidly
-      handleItemClick(item.timestamp, item.designation, item.groupId);
-      
-      // Small delay between clicks
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    console.log('✅ Rapid click test initiated - check console for request cancellations');
-  };
 
   return (
     <div className="app-container">
@@ -234,55 +146,6 @@ const App: React.FC = () => {
           <TimelinePage />
         ) : (
           <>
-            {/* Developer Tools */}
-            <div className="dev-tools">
-              <div className="dev-tools-header">
-                🛠️ DEVELOPER TOOLS
-              </div>
-              <div className="dev-tools-grid">
-                <button 
-                  onClick={handleTestSlowResponse}
-                  disabled={loading}
-                  className="dev-button test-slow"
-                >
-                  🐌 Test Slow (6s)
-                </button>
-                <button 
-                  onClick={handleTest404Response}
-                  disabled={loading}
-                  className="dev-button test-404"
-                >
-                  🚫 Test 404
-                </button>
-                <button 
-                  onClick={handleTestRapidClicks}
-                  disabled={loading}
-                  className="dev-button test-rapid"
-                >
-                  🚀 Test Rapid
-                </button>
-                <button 
-                  onClick={handleHealthCheck}
-                  disabled={loading}
-                  className="dev-button health"
-                >
-                  ❤️ Health Check
-                </button>
-                <button 
-                  onClick={handleEraseCache}
-                  disabled={loading}
-                  className="dev-button cache"
-                >
-                  🗑️ Erase Cache
-                </button>
-              </div>
-              {loading && loadingMessage && (
-                <div className="loading-message">
-                  {loadingMessage}
-                </div>
-              )}
-            </div>
-
             {/* Items Table - Main Content */}
             <ItemsSection 
               onItemClick={handleItemClick}
