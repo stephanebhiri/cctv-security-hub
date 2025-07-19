@@ -296,79 +296,23 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
   }
 
   return (
-    <>
+    <div className="cctv-window">
       {/* Header */}
-      <div className="modal-header">
-        <div className="modal-title-section">
-          <h2 className="modal-title">📹 {itemName || 'CCTV Surveillance'}</h2>
-          <div className="sync-info">
-            <span className="time-display">
-              {new Date(timelineValue * 1000).toLocaleString('fr-FR')}
-            </span>
+      <div className="cctv-header">
+        <div className="cctv-info">
+          <div className="iconSituation">📹</div>
+          <div className="elementdata">
+            <div className="NomElement">{itemName || 'CCTV Surveillance'}</div>
+            <div className="status-line">
+              <span>{new Date(timelineValue * 1000).toLocaleString('fr-FR')}</span>
+            </div>
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="modal-close">
-            ✕ CLOSE
+          <button onClick={onClose} className="closebutton">
+            ✕ Fermer
           </button>
         )}
-      </div>
-
-      {/* Controls */}
-      <div className="video-controls">
-        <div className="controls-row">
-          <button 
-            onClick={goToPrevious}
-            disabled={timelineValue <= targetTimestamp - TIMELINE_RANGE_SECONDS}
-            className="control-button"
-          >
-            ⏮️ Précédent
-          </button>
-          
-          <button 
-            onClick={togglePlayPause}
-            className="control-button play"
-          >
-            {isPlaying ? '⏸️ Pause' : '▶️ Play'}
-          </button>
-          
-          <button 
-            onClick={goToNext}
-            disabled={timelineValue >= targetTimestamp + TIMELINE_RANGE_SECONDS}
-            className="control-button"
-          >
-            Suivant ⏭️
-          </button>
-          
-          <button 
-            onClick={handleLoadVideos}
-            className="control-button"
-            style={{ backgroundColor: '#FF9800' }}
-          >
-            🔄 Reload
-          </button>
-        </div>
-
-        {/* Timeline simple */}
-        <div className="timeline-container">
-          <div className="timeline-info">
-            <span>10 min avant</span>
-            <span className="timeline-current">
-              {new Date(timelineValue * 1000).toLocaleTimeString()}
-            </span>
-            <span>10 min après</span>
-          </div>
-          
-          <input
-            type="range"
-            min={targetTimestamp - TIMELINE_RANGE_SECONDS}
-            max={targetTimestamp + TIMELINE_RANGE_SECONDS}
-            value={timelineValue}
-            onChange={handleTimelineChange}
-            className="timeline-slider"
-            step="1"
-          />
-        </div>
       </div>
 
       {/* Grille de vidéos */}
@@ -430,7 +374,59 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           </div>
         ))}
       </div>
-    </>
+
+      {/* Controls - Single Row Layout */}
+      <div className="video-controls">
+        <div className="controls-row">
+          <button 
+            onClick={goToPrevious}
+            disabled={timelineValue <= targetTimestamp - TIMELINE_RANGE_SECONDS}
+            className="control-button"
+          >
+            ⏮️ Précédent
+          </button>
+          
+          <button 
+            onClick={togglePlayPause}
+            className="control-button play"
+          >
+            {isPlaying ? '⏸️ Pause' : '▶️ Play'}
+          </button>
+          
+          <button 
+            onClick={goToNext}
+            disabled={timelineValue >= targetTimestamp + TIMELINE_RANGE_SECONDS}
+            className="control-button"
+          >
+            Suivant ⏭️
+          </button>
+          
+          <button 
+            onClick={handleLoadVideos}
+            className="control-button"
+            style={{ backgroundColor: '#FF9800' }}
+          >
+            🔄 Reload
+          </button>
+
+          {/* Timeline inline */}
+          <div className="timeshift-controls">
+            <span className="timeline-current">
+              {new Date(timelineValue * 1000).toLocaleTimeString()}
+            </span>
+            <input
+              type="range"
+              min={targetTimestamp - TIMELINE_RANGE_SECONDS}
+              max={targetTimestamp + TIMELINE_RANGE_SECONDS}
+              value={timelineValue}
+              onChange={handleTimelineChange}
+              className="timeline-slider"
+              step="1"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

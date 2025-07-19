@@ -289,23 +289,16 @@ const App: React.FC = () => {
               onHealthCheck={handleHealthCheck}
             />
 
-            {/* CCTV Modal - Clean Structure */}
+            {/* CCTV Fullscreen Overlay */}
             {videoSectionVisible && (
-              <div className="cctv-modal">
-                <div className="modal-content">
-                  {/* Direct MultiCameraView with unified header */}
-                  <SimpleMultiCameraView
-                    targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
-                    onError={(error) => setError(error)}
-                    isSearching={loading}
-                    itemName={currentItemName}
-                    onClose={closeVideoPlayer}
-                  />
-                  
-                  <div className="metadata-panel">
-                    📺 6 Cameras Synchronized • Use ←→ keys to navigate • Limited to 10 clips range
-                  </div>
-                </div>
+              <div className="cctv-fullscreen-overlay">
+                <SimpleMultiCameraView
+                  targetTimestamp={selectedDateTime ? Math.floor(new Date(selectedDateTime).getTime() / 1000) : Math.floor(Date.now() / 1000)}
+                  onError={(error) => setError(error)}
+                  isSearching={loading}
+                  itemName={currentItemName}
+                  onClose={closeVideoPlayer}
+                />
               </div>
             )}
           </>
