@@ -9,6 +9,7 @@ interface TimelineGroup {
 
 interface TimelineEvent {
   id: string;
+  rfid_tag_id: string;
   text: string;
   start_date: string;
   end_date: string | null;
@@ -30,7 +31,7 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
   events,
   onItemClick,
   width = 1200,
-  height = 800,
+  height = 600, // Minimum height, will be expanded based on groups
   timeScale = 'day'
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -47,10 +48,10 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     // Set up dimensions and margins
     const margin = { top: 40, right: 40, bottom: 60, left: 220 };
     const innerWidth = width - margin.left - margin.right;
-    const groupHeight = 80; // Reasonable height for single lane with slight offset
+    const groupHeight = 220; // Height for 8 lanes with 25px spacing + margin
 
-    // Calculate total height needed for all groups
-    const totalHeight = Math.max(height, groups.length * groupHeight + margin.top + margin.bottom + 50);
+    // Calculate total height needed for all groups (will be updated after calculating lanes)
+    let totalHeight = Math.max(height, groups.length * groupHeight + margin.top + margin.bottom + 50);
     
     // Create main SVG
     const svg = d3.select(svgRef.current)
@@ -61,21 +62,24 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
-    // Create clip path for zooming
-    svg.append('defs')
-      .append('clipPath')
-      .attr('id', 'timeline-clip')
-      .append('rect')
-      .attr('width', innerWidth)
-      .attr('height', groups.length * groupHeight);
+    // Clip path will be created after calculating total height
 
     // Parse dates
     const parseTime = d3.timeParse('%Y-%m-%d %H:%M:%S');
-    const parsedEvents = events.map(event => ({
-      ...event,
-      startDate: parseTime(event.start_date)!,
-      endDate: event.end_date ? parseTime(event.end_date) : null
-    }));
+    const parsedEvents = events.map(event => {
+      const startDate = parseTime(event.start_date) || new Date(event.start_date);
+      const endDate = event.end_date ? (parseTime(event.end_date) || new Date(event.end_date)) : null;
+      
+      if (!parseTime(event.start_date)) {
+        console.warn('Failed to parse date with d3.timeParse:', event.start_date, '- using Date constructor');
+      }
+      
+      return {
+        ...event,
+        startDate,
+        endDate
+      };
+    });
 
     // Create time scale based on timeScale prop
     const now = new Date();
@@ -132,66 +136,188 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .tickFormat(tickFormat as any)
       .ticks(tickCount);
 
-    g.append('g')
-      .attr('class', 'x-axis')
-      .attr('transform', `translate(0, ${groups.length * groupHeight})`)
-      .call(xAxis);
-
-    // Create group lanes
-    const groupLanes = g.selectAll('.group-lane')
-      .data(groups)
-      .enter()
-      .append('g')
-      .attr('class', 'group-lane')
-      .attr('transform', (d, i) => `translate(0, ${i * groupHeight})`);
-
-    // Add group background rectangles
-    groupLanes.append('rect')
-      .attr('width', innerWidth)
-      .attr('height', groupHeight - 2)
-      .attr('fill', (d, i) => i % 2 === 0 ? '#f8fafc' : '#ffffff')
-      .attr('stroke', '#e2e8f0')
-      .attr('stroke-width', 1);
-
-    // Add group labels (on left side)
-    svg.append('g')
-      .selectAll('.group-label')
-      .data(groups)
-      .enter()
-      .append('text')
-      .attr('x', 10)
-      .attr('y', (d, i) => margin.top + i * groupHeight + groupHeight/2)
-      .attr('dy', '0.35em')
-      .text(d => d.label)
-      .style('font-size', '14px')
-      .style('font-weight', '500')
-      .style('fill', '#2d3748');
+    // X-axis will be positioned after calculating group heights
+      
 
     // Filter events to only show those in the current time window
     const recentEvents = parsedEvents.filter(event => 
       event.startDate >= startTime && event.startDate <= now
     );
+    
+    console.log('D3Timeline debug:', {
+      totalEvents: events.length,
+      parsedEvents: parsedEvents.length,
+      recentEvents: recentEvents.length,
+      startTime,
+      now,
+      timeScale
+    });
+    
+    // Count unique groups including virtual ones from events
+    const eventGroupIds = new Set(recentEvents.map(e => e.section_id.toString()));
+    const virtualGroups = Array.from(eventGroupIds).filter(gId => !groups.some(g => g.key === gId));
+    const totalGroupsCount = groups.length + virtualGroups.length;
+    
+    // Rendering will be done after lane assignment
 
-    // Create zoomable content group
+    // Create zoomable content group FIRST (before backgrounds)
     const zoomGroup = g.append('g')
       .attr('class', 'zoom-group')
       .attr('clip-path', 'url(#timeline-clip)');
 
-    // Simple single-lane positioning with slight random offset to break visual overlap
-    const eventsWithPositions: any[] = recentEvents.map(event => {
-      const groupIndex = groups.findIndex(g => g.key === event.section_id.toString());
-      const baseY = groupIndex >= 0 ? groupIndex * groupHeight : 0;
+    // Dedicated lane assignment - each item gets its own permanent lane
+    const eventsWithPositions: any[] = [];
+    
+    // Create a stable mapping of RFID tags to lanes within each group
+    const rfidToLane: { [groupId: string]: { [rfidId: string]: number } } = {};
+    const groupLaneCounters: { [groupId: string]: number } = {};
+    
+    // First pass: assign lanes to unique RFID tags
+    const uniqueRfidTags = new Set();
+    recentEvents.forEach(event => {
+      const groupId = event.section_id.toString();
+      const rfidId = event.rfid_tag_id;
+      const uniqueKey = `${groupId}-${rfidId}`;
       
-      // Small random vertical offset (±8px) to break visual overlap without being "magnetic"
-      const randomOffset = (Math.random() - 0.5) * 16; // -8 to +8 pixels
+      if (!uniqueRfidTags.has(uniqueKey)) {
+        uniqueRfidTags.add(uniqueKey);
+        
+        // Check if this group exists in the groups list  
+        // const groupExists = groups.some(g => g.key === groupId);
+        // if (!groupExists) {
+        //   console.warn(`⚠️ Event in Group ${groupId} but group not in timeline groups list!`);
+        // } // Disabled for performance
+        
+        if (!rfidToLane[groupId]) {
+          rfidToLane[groupId] = {};
+          groupLaneCounters[groupId] = 0;
+        }
+        
+        if (!rfidToLane[groupId][rfidId]) {
+          rfidToLane[groupId][rfidId] = groupLaneCounters[groupId];
+          // console.log(`🏁 Lane assigned: Group ${groupId}, RFID ${rfidId} -> Lane ${groupLaneCounters[groupId]}`); // Disabled for performance
+          groupLaneCounters[groupId]++;
+        }
+      }
+    });
+    
+    // Calculate adaptive group heights based on actual lane counts
+    const groupHeights: { [groupId: string]: number } = {};
+    const baseHeightPerLane = 30; // Height per lane
+    const minGroupHeight = 60; // Minimum height per group
+    
+    // Calculate heights for real groups
+    groups.forEach(group => {
+      const groupId = group.key;
+      const lanesInGroup = groupLaneCounters[groupId] || 1;
+      groupHeights[groupId] = Math.max(minGroupHeight, lanesInGroup * baseHeightPerLane + 20);
+    });
+    
+    // Calculate heights for virtual groups
+    virtualGroups.forEach(groupId => {
+      const lanesInGroup = groupLaneCounters[groupId] || 1;
+      groupHeights[groupId] = Math.max(minGroupHeight, lanesInGroup * baseHeightPerLane + 20);
+    });
+    
+    // Calculate cumulative Y positions for groups
+    const groupYPositions: { [groupId: string]: number } = {};
+    let cumulativeY = 0;
+    
+    // Real groups first
+    groups.forEach(group => {
+      groupYPositions[group.key] = cumulativeY;
+      cumulativeY += groupHeights[group.key];
+    });
+    
+    // Virtual groups after
+    virtualGroups.forEach(groupId => {
+      groupYPositions[groupId] = cumulativeY;
+      cumulativeY += groupHeights[groupId];
+    });
+    
+    // Sort events by start time for consistent lane assignment
+    const sortedEvents = recentEvents.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    // Second pass: assign positions using the stable lane mapping
+    sortedEvents.forEach(event => {
+      const groupId = event.section_id.toString();
+      const rfidId = event.rfid_tag_id;
+      let groupIndex = groups.findIndex(g => g.key === groupId);
       
-      return {
+      // Use adaptive group positioning
+      const baseY = groupYPositions[groupId] || 0;
+      
+      // Get the pre-assigned lane for this RFID tag
+      const assignedLane = rfidToLane[groupId] && rfidToLane[groupId][rfidId] !== undefined 
+        ? rfidToLane[groupId][rfidId] 
+        : 0; // Fallback to lane 0 if somehow not found
+      
+      // Calculate Y position based on assigned lane with adaptive spacing
+      const laneY = baseY + 10 + (assignedLane * baseHeightPerLane);
+      
+      eventsWithPositions.push({
         ...event,
-        yPosition: baseY + 30 + randomOffset // Center lane with slight randomization
-      };
+        yPosition: laneY,
+        assignedLane: assignedLane,
+        rfidId: rfidId
+      });
+      
+      // console.log(`📍 Event positioned: Group ${groupId}, "${event.text}" (${rfidId}) -> Lane ${assignedLane}`); // Disabled for performance
     });
 
+    // Update total height and SVG
+    totalHeight = Math.max(height, cumulativeY + margin.top + margin.bottom + 50);
+    svg.attr('height', totalHeight);
+    
+    // Create clip path with correct height
+    svg.append('defs')
+      .append('clipPath')
+      .attr('id', 'timeline-clip')
+      .append('rect')
+      .attr('width', innerWidth)
+      .attr('height', cumulativeY);
+    
+    // Create adaptive group backgrounds and labels
+    const allGroupData = [
+      ...groups.map(g => ({ ...g, isVirtual: false })),
+      ...virtualGroups.map(id => ({ key: id, label: `Virtual Group ${id}`, isVirtual: true }))
+    ];
+    
+    // Add group background rectangles INSIDE zoomGroup (behind items)
+    zoomGroup.selectAll('.group-background')
+      .data(allGroupData)
+      .enter()
+      .append('rect')
+      .attr('class', 'group-background')
+      .attr('x', 0)
+      .attr('y', d => groupYPositions[d.key])
+      .attr('width', innerWidth)
+      .attr('height', d => groupHeights[d.key] - 2)
+      .attr('fill', (d, i) => i % 2 === 0 ? '#f8fafc' : '#ffffff');
+    
+    // Add group labels
+    svg.append('g')
+      .selectAll('.group-label')
+      .data(allGroupData)
+      .enter()
+      .append('text')
+      .attr('class', 'group-label')
+      .attr('x', 10)
+      .attr('y', d => margin.top + groupYPositions[d.key] + groupHeights[d.key]/2)
+      .attr('dy', '0.35em')
+      .text(d => d.label)
+      .style('font-size', '14px')
+      .style('font-weight', '500')
+      .style('fill', d => d.isVirtual ? '#e53e3e' : '#2d3748');
+      
+    // Add X-axis at the bottom
+    g.append('g')
+      .attr('class', 'x-axis')
+      .attr('transform', `translate(0, ${cumulativeY})`)
+      .call(xAxis);
+
     // Create timeline items
+    console.log('Creating items with positions:', eventsWithPositions.length);
     const items = zoomGroup.selectAll('.timeline-item')
       .data(eventsWithPositions)
       .enter()
@@ -216,26 +342,39 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .style('z-index', 1000);
 
     // Add range items (rectangles)
-    items.filter(d => d.endDate !== null)
-      .append('rect')
+    const rangeItems = items.filter(d => d.endDate !== null);
+    console.log('Range items (with end date):', rangeItems.size());
+    
+    rangeItems.append('rect')
       .attr('x', d => xScale(d.startDate))
       .attr('y', d => d.yPosition)
-      .attr('width', d => Math.max(xScale(d.endDate!) - xScale(d.startDate), 3))
-      .attr('height', 38)
+      .attr('width', d => {
+        const width = Math.max(xScale(d.endDate!) - xScale(d.startDate), 3);
+        if (d.id === eventsWithPositions[0]?.id) {
+          console.log('First rect dimensions:', {
+            x: xScale(d.startDate),
+            y: d.yPosition,
+            width,
+            color: d.color,
+            startDate: d.startDate,
+            endDate: d.endDate,
+            xScaleStart: xScale(d.startDate),
+            xScaleEnd: xScale(d.endDate),
+            domain: xScale.domain(),
+            range: xScale.range()
+          });
+        }
+        return width;
+      })
+      .attr('height', 20)
       .attr('rx', 6)
       .attr('fill', d => d.color)
-      .attr('opacity', 0.8)
       .on('mouseover', function(event, d) {
-        d3.select(this)
-          .attr('opacity', 1)
-          .attr('stroke', '#ffffff')
-          .attr('stroke-width', 2);
-        
         const duration = d.endDate ? 
           `${Math.round((d.endDate.getTime() - d.startDate.getTime()) / (1000 * 60))} min` : 
           'En cours';
         
-        tooltip.transition().duration(200).style('opacity', 1);
+        tooltip.style('opacity', 1);
         tooltip.html(`
           <strong>${d.text}</strong><br/>
           Début: ${d.startDate.toLocaleString('fr-FR')}<br/>
@@ -246,31 +385,20 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           .style('top', (event.pageY - 10) + 'px');
       })
       .on('mouseout', function() {
-        d3.select(this)
-          .attr('opacity', 0.8)
-          .attr('stroke', 'none');
-        
-        tooltip.transition().duration(200).style('opacity', 0);
+        tooltip.style('opacity', 0);
       });
 
     // Add point items (circles for ongoing events)
-    items.filter(d => d.endDate === null)
-      .append('circle')
+    const pointItems = items.filter(d => d.endDate === null);
+    console.log('Point items (no end date):', pointItems.size());
+    
+    pointItems.append('circle')
       .attr('cx', d => xScale(d.startDate))
-      .attr('cy', d => d.yPosition + 19) // Center in the lane
+      .attr('cy', d => d.yPosition + 10) // Center in the lane
       .attr('r', 12)
       .attr('fill', d => d.color)
-      .attr('stroke', '#ffffff')
-      .attr('stroke-width', 3)
-      .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))')
       .on('mouseover', function(event, d) {
-        d3.select(this)
-          .transition()
-          .duration(150)
-          .attr('r', 16)
-          .attr('stroke-width', 4);
-        
-        tooltip.transition().duration(200).style('opacity', 1);
+        tooltip.style('opacity', 1);
         tooltip.html(`
           <strong>${d.text}</strong><br/>
           Début: ${d.startDate.toLocaleString('fr-FR')}<br/>
@@ -280,29 +408,63 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           .style('top', (event.pageY - 10) + 'px');
       })
       .on('mouseout', function() {
-        d3.select(this)
-          .transition()
-          .duration(150)
-          .attr('r', 12)
-          .attr('stroke-width', 3);
-        
-        tooltip.transition().duration(200).style('opacity', 0);
+        tooltip.style('opacity', 0);
       });
 
-    // Add text labels for items
-    items.append('text')
-      .attr('x', d => d.endDate !== null ? 
-        xScale(d.startDate) + (xScale(d.endDate!) - xScale(d.startDate)) / 2 : 
-        xScale(d.startDate))
-      .attr('y', d => d.yPosition + 19) // Center in the lane
-      .attr('dy', '0.35em')
-      .attr('text-anchor', 'middle')
-      .text(d => d.text.length > 12 ? d.text.substring(0, 12) + '...' : d.text)
-      .style('font-size', '11px')
-      .style('font-weight', '600')
-      .style('fill', '#ffffff')
-      .style('pointer-events', 'none')
-      .style('text-shadow', '0 1px 2px rgba(0,0,0,0.8)');
+    // Add lane labels that span the full width
+    // Collect unique lanes and their labels - group by RFID tag, not by event
+    const rfidLanes: { [key: string]: { text: string, y: number, rfidId: string } } = {};
+    
+    eventsWithPositions.forEach(event => {
+      const laneKey = `${event.section_id}-${event.assignedLane}`;
+      const rfidId = event.rfid_tag_id;
+      
+      if (!rfidLanes[laneKey]) {
+        rfidLanes[laneKey] = {
+          text: event.text, // Use item designation
+          y: event.yPosition,
+          rfidId: rfidId
+        };
+      } else {
+        // Verify it's the same RFID tag (should be, but let's check)
+        if (rfidLanes[laneKey].rfidId !== rfidId) {
+          console.warn(`🚨 REAL conflict! Lane ${laneKey}: RFID "${rfidLanes[laneKey].rfidId}" vs "${rfidId}"`);
+          rfidLanes[laneKey].text = `${rfidLanes[laneKey].text} / ${event.text}`;
+        }
+        // Same RFID tag, same lane - that's expected, no need to change the label
+      }
+    });
+    
+    // Convert to the expected format
+    const laneLabels: { [key: string]: { text: string, y: number } } = {};
+    Object.entries(rfidLanes).forEach(([key, value]) => {
+      laneLabels[key] = { text: value.text, y: value.y };
+    });
+    
+    // Create lane background and labels
+    Object.entries(laneLabels).forEach(([laneKey, lane]) => {
+      const [groupId, laneNum] = laneKey.split('-');
+      
+      // Simplified lane background 
+      zoomGroup.append('rect')
+        .attr('x', 0)
+        .attr('y', lane.y - 2)
+        .attr('width', innerWidth)
+        .attr('height', 20)
+        .attr('fill', 'rgba(255,255,255,0.1)')
+        .style('pointer-events', 'none');
+      
+      // Lane label text with group info for debugging
+      zoomGroup.append('text')
+        .attr('x', 10) // Left margin
+        .attr('y', lane.y + 10)
+        .attr('dy', '0.35em')
+        .text(`[G${groupId}] ${lane.text}`) // Show group ID to see the separation
+        .style('font-size', '11px')
+        .style('font-weight', '500')
+        .style('fill', '#000000')
+        .style('pointer-events', 'none'); // Removed text-shadow for performance
+    });
 
     // Add current time indicator
     const currentTime = new Date();
@@ -311,11 +473,9 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .attr('x1', xScale(currentTime))
       .attr('x2', xScale(currentTime))
       .attr('y1', 0)
-      .attr('y2', groups.length * groupHeight)
+      .attr('y2', cumulativeY)
       .attr('stroke', '#ef4444')
-      .attr('stroke-width', 2)
-      .attr('stroke-dasharray', '4,4')
-      .style('opacity', 0.8);
+      .attr('stroke-width', 1); // Simplified - no dashed lines or opacity
 
     // Add zoom and pan behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
@@ -369,8 +529,8 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
   }
 
   return (
-    <div className="d3-timeline-container">
-      <svg ref={svgRef} className="d3-timeline-svg" />
+    <div className="d3-timeline-container" style={{ height: '800px', overflowY: 'auto' }}>
+      <svg ref={svgRef} className="d3-timeline-svg" style={{ height: 'auto', minHeight: '800px' }} />
     </div>
   );
 };

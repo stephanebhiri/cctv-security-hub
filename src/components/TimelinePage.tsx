@@ -22,6 +22,7 @@ interface TimelineGroup {
 
 interface TimelineEvent {
   id: string;
+  rfid_tag_id: string;
   text: string;
   start_date: string;
   end_date: string | null;
@@ -34,7 +35,7 @@ const TimelinePage: React.FC = () => {
   const timelineInstance = useRef<Timeline | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeScale, setTimeScale] = useState<'day' | 'week' | 'month' | 'year'>('week');
+  const [timeScale, setTimeScale] = useState<'day' | 'week' | 'month' | 'year'>('day');
   const [timelineType, setTimelineType] = useState<'d3' | 'react-calendar' | 'vis'>('react-calendar'); // Timeline implementation type
 
   console.log('TimelinePage component rendered');
@@ -75,12 +76,13 @@ const TimelinePage: React.FC = () => {
     fetchTimelineData();
   }, []);
 
-  // Create timeline when data is available AND ref is ready
+  // Create timeline when data is available AND ref is ready AND vis timeline is selected
   useEffect(() => {
-    if (!timelineData || !timelineRef.current) {
+    if (!timelineData || !timelineRef.current || timelineType !== 'vis') {
       console.log('Not ready to create timeline:', { 
         hasData: !!timelineData, 
-        hasRef: !!timelineRef.current 
+        hasRef: !!timelineRef.current,
+        isVisTimeline: timelineType === 'vis'
       });
       return;
     }
@@ -110,11 +112,11 @@ const TimelinePage: React.FC = () => {
         className: 'timeline-event'
       }));
 
-      // Timeline options
+      // Timeline options with collapsible groups
       const options = {
         width: '100%',
         height: '600px',
-        stack: false,
+        stack: true,
         showMajorLabels: true,
         showMinorLabels: true,
         zoomable: true,
@@ -125,11 +127,15 @@ const TimelinePage: React.FC = () => {
           return parseInt(a.id) - parseInt(b.id);
         },
         groupTemplate: (group: any) => {
-          return group.content;
+          if (!group) return '';
+          return `<div class="timeline-group-folder" data-group-id="${group.id}">
+            <span class="group-toggle">▼</span> ${group.content}
+          </div>`;
         },
         groupHeightMode: 'auto' as const,
         groupMinHeight: 60,
         showCurrentTime: true,
+        verticalScroll: true,
         format: {
           minorLabels: {
             millisecond: 'SSS',
@@ -183,6 +189,33 @@ const TimelinePage: React.FC = () => {
         }
       });
 
+      // Handle group click for expand/collapse
+      timelineInstance.current.on('groupDragged', (group: any) => {
+        console.log('Group clicked:', group);
+      });
+
+      // Simple click listener for group toggle
+      const container = timelineRef.current;
+      container.addEventListener('click', (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('group-toggle')) {
+          const groupFolder = target.parentElement;
+          const groupId = groupFolder?.getAttribute('data-group-id');
+          
+          if (groupId && timelineInstance.current) {
+            console.log('Group toggle clicked for:', groupId);
+            
+            // Simply toggle the icon
+            target.textContent = target.textContent === '▼' ? '▶' : '▼';
+            
+            // Toggle stacking globally (simple implementation)
+            timelineInstance.current.setOptions({
+              stack: target.textContent === '▼'
+            });
+          }
+        }
+      });
+
       console.log('Timeline created successfully');
     } catch (err) {
       console.error('Error creating timeline:', err);
@@ -195,7 +228,7 @@ const TimelinePage: React.FC = () => {
         timelineInstance.current = null;
       }
     };
-  }, [timelineData]);
+  }, [timelineData, timelineType]);
 
   const handleItemClick = (item: TimelineItem) => {
     // Similar to the original timeline.html playerPop function
@@ -400,12 +433,11 @@ const TimelinePage: React.FC = () => {
             events={timelineData.events}
             onItemClick={handleD3ItemClick}
             width={1200}
-            height={800}
             timeScale={timeScale}
           />
-        ) : (
+        ) : timelineType === 'vis' ? (
           <div ref={timelineRef} className="timeline-visualization" />
-        )}
+        ) : null}
       </div>
     </div>
   );

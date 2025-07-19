@@ -63,6 +63,7 @@ router.get('/treehist', async (req, res) => {
     const query = `
       SELECT 
         h.id,
+        i.epc as rfid_tag_id,
         i.designation as text,
         DATE_FORMAT(h.dep, '%Y-%m-%d %H:%i:%s') as start_date,
         DATE_FORMAT(h.ret, '%Y-%m-%d %H:%i:%s') as end_date,
@@ -85,6 +86,7 @@ router.get('/treehist', async (req, res) => {
     // Transform data for vis-timeline format
     const timelineEvents = rows.map(row => ({
       id: row.id.toString(),
+      rfid_tag_id: row.rfid_tag_id,
       text: row.text,
       start_date: row.start_date,
       end_date: row.end_date,
