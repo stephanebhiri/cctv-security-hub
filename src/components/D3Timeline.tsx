@@ -71,9 +71,9 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .attr('width', width)
       .attr('height', totalHeight);
 
-    // Create main group for content
+    // Create main group for content - start below fixed header
     const g = svg.append('g')
-      .attr('transform', `translate(${margin.left}, ${margin.top})`);
+      .attr('transform', `translate(${margin.left}, ${margin.top + 60})`);
 
     // Clip path will be created after calculating total height
 
@@ -261,7 +261,23 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
     // Create fixed group for labels that don't move with vertical scroll
     const fixedLabelsGroup = svg.append('g')
       .attr('class', 'fixed-labels')
-      .attr('transform', `translate(0, ${margin.top})`);
+      .attr('transform', `translate(0, ${margin.top + 60})`);
+    
+    // Create fixed header zone for time axes
+    svg.append('rect')
+      .attr('class', 'timeline-header-bg')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', width)
+      .attr('height', 60)
+      .attr('fill', '#ffffff')
+      .attr('stroke', '#e5e7eb')
+      .attr('stroke-width', 1);
+    
+    // Create fixed group for time axes in header zone
+    const fixedAxesGroup = svg.append('g')
+      .attr('class', 'fixed-axes')
+      .attr('transform', `translate(${margin.left}, 50)`);
 
     // Dedicated lane assignment - each item gets its own permanent lane
     const eventsWithPositions: any[] = [];
@@ -424,22 +440,16 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
       .attr('stroke-dasharray', '2,2')
       .attr('opacity', 0.7);
 
-    // Add major X-axis at the top (with date/time info)
-    g.append('g')
+    // Add major X-axis at the top (with date/time info) - In fixed header
+    fixedAxesGroup.append('g')
       .attr('class', 'x-axis-major')
-      .attr('transform', `translate(0, -30)`)
+      .attr('transform', `translate(0, -25)`)
       .call(xAxisMajor.tickSizeOuter(0));
     
-    // Add minor X-axis (time only for 24h view)
-    g.append('g')
+    // Add minor X-axis (time only for 24h view) - In fixed header
+    fixedAxesGroup.append('g')
       .attr('class', 'x-axis-minor')
       .attr('transform', `translate(0, -10)`)
-      .call(xAxis.tickSizeOuter(0));
-    
-    // Add bottom axis for reference
-    g.append('g')
-      .attr('class', 'x-axis-bottom')
-      .attr('transform', `translate(0, ${cumulativeY + 10})`)
       .call(xAxis.tickSizeOuter(0));
 
     // Create timeline items
@@ -654,8 +664,8 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           clampedY = lastValidY;
         }
         
-        // Apply vertical translation to the main group
-        g.attr('transform', `translate(${margin.left}, ${margin.top + clampedY})`);
+        // Apply vertical translation to the main group - keep header space
+        g.attr('transform', `translate(${margin.left}, ${margin.top + 60 + clampedY})`);
         
         // Update group labels position to follow the scroll
         fixedLabelsGroup.selectAll('.group-label')
@@ -691,10 +701,10 @@ const D3Timeline: React.FC<D3TimelineProps> = ({
           .tickFormat(adaptiveFormats.majorTickFormat as any)
           .ticks(Math.max(3, Math.floor(adaptiveFormats.tickCount / 3)));
         
-        // Update axes with new adaptive formats
-        g.select('.x-axis-major').call(newXAxisMajor as any);
-        g.select('.x-axis-minor').call(newXAxis as any);
-        g.select('.x-axis-bottom').call(newXAxis as any);
+        // Update axes with new adaptive formats - using fixed axes group
+        fixedAxesGroup.select('.x-axis-major').call(newXAxisMajor as any);
+        fixedAxesGroup.select('.x-axis-minor').call(newXAxis as any);
+        fixedAxesGroup.select('.x-axis-bottom').call(newXAxis as any);
         
         // Update grid lines with new adaptive ticks
         const newTicks = newXScale.ticks(adaptiveFormats.tickCount);

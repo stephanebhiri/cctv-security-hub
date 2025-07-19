@@ -1,24 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Timeline } from 'vis-timeline/standalone';
-import 'vis-timeline/styles/vis-timeline-graph2d.css';
+import React, { useEffect, useState } from 'react';
+// vis-timeline imports removed - D3.js only
 import '../styles/timeline.css';
 import '../styles/d3-timeline.css';
 import D3Timeline from './D3Timeline';
-import ReactCalendarTimeline from './ReactCalendarTimeline';
+// ReactCalendarTimeline removed - D3.js only
 
-interface TimelineItem {
-  id: string;
-  content: string;
-  start: Date;
-  end?: Date;
-  group: string;
-  type?: 'box' | 'point' | 'range' | 'background';
-}
-
-interface TimelineGroup {
-  id: string;
-  content: string;
-}
+// Vis-timeline interfaces removed - D3.js only
 
 interface TimelineEvent {
   id: string;
@@ -31,12 +18,12 @@ interface TimelineEvent {
 }
 
 const TimelinePage: React.FC = () => {
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const timelineInstance = useRef<Timeline | null>(null);
+  // Timeline ref removed - D3.js only
+  // Timeline instance removed - D3.js only
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeScale, setTimeScale] = useState<'day' | 'week' | 'month' | 'year'>('day');
-  const [timelineType, setTimelineType] = useState<'d3' | 'react-calendar' | 'vis'>('react-calendar'); // Timeline implementation type
+  // Force D3.js timeline only - no buttons needed
 
   console.log('TimelinePage component rendered');
 
@@ -76,175 +63,9 @@ const TimelinePage: React.FC = () => {
     fetchTimelineData();
   }, [timeScale]);
 
-  // Create timeline when data is available AND ref is ready AND vis timeline is selected
-  useEffect(() => {
-    if (!timelineData || !timelineRef.current || timelineType !== 'vis') {
-      console.log('Not ready to create timeline:', { 
-        hasData: !!timelineData, 
-        hasRef: !!timelineRef.current,
-        isVisTimeline: timelineType === 'vis'
-      });
-      return;
-    }
+  // Vis-timeline removed - D3.js only
 
-    console.log('Creating timeline with ref:', timelineRef.current);
-
-    try {
-      const { groups, events } = timelineData;
-
-      // Transform groups data for vis-timeline
-      const timelineGroups = groups.map((group: any) => ({
-        id: group.key.toString(),
-        content: group.label,
-        className: group.parent ? 'timeline-item' : 'timeline-group',
-        visible: true,
-        showNested: true
-      }));
-
-      // Transform events data for vis-timeline
-      const timelineItems = events.map((event: TimelineEvent) => ({
-        id: event.id,
-        group: event.section_id,
-        content: event.text,
-        start: new Date(event.start_date),
-        end: event.end_date ? new Date(event.end_date) : undefined,
-        type: (event.end_date ? 'range' : 'point') as 'box' | 'point' | 'range' | 'background',
-        className: 'timeline-event'
-      }));
-
-      // Timeline options with collapsible groups
-      const options = {
-        width: '100%',
-        height: '600px',
-        stack: true,
-        showMajorLabels: true,
-        showMinorLabels: true,
-        zoomable: true,
-        moveable: true,
-        orientation: 'top',
-        locale: 'fr',
-        groupOrder: function(a: any, b: any) {
-          return parseInt(a.id) - parseInt(b.id);
-        },
-        groupTemplate: (group: any) => {
-          if (!group) return '';
-          return `<div class="timeline-group-folder" data-group-id="${group.id}">
-            <span class="group-toggle">▼</span> ${group.content}
-          </div>`;
-        },
-        groupHeightMode: 'auto' as const,
-        groupMinHeight: 60,
-        showCurrentTime: true,
-        verticalScroll: true,
-        format: {
-          minorLabels: {
-            millisecond: 'SSS',
-            second: 's',
-            minute: 'HH:mm',
-            hour: 'HH:mm',
-            weekday: 'ddd D',
-            day: 'D',
-            week: 'w',
-            month: 'MMM',
-            year: 'YYYY'
-          },
-          majorLabels: {
-            millisecond: 'HH:mm:ss',
-            second: 'D MMMM HH:mm',
-            minute: 'ddd D MMMM',
-            hour: 'ddd D MMMM',
-            weekday: 'MMMM YYYY',
-            day: 'MMMM YYYY',
-            week: 'MMMM YYYY',
-            month: 'YYYY',
-            year: ''
-          }
-        },
-        tooltip: {
-          followMouse: true,
-          overflowMethod: 'cap' as const
-        }
-      };
-
-      // Destroy existing timeline
-      if (timelineInstance.current) {
-        timelineInstance.current.destroy();
-      }
-
-      // Create timeline
-      timelineInstance.current = new Timeline(
-        timelineRef.current,
-        timelineItems,
-        timelineGroups,
-        options
-      );
-
-      // Handle item selection
-      timelineInstance.current.on('select', (properties) => {
-        if (properties.items.length > 0) {
-          const selectedItem = timelineItems.find(item => item.id === properties.items[0]);
-          if (selectedItem) {
-            handleItemClick(selectedItem);
-          }
-        }
-      });
-
-      // Handle group click for expand/collapse
-      timelineInstance.current.on('groupDragged', (group: any) => {
-        console.log('Group clicked:', group);
-      });
-
-      // Simple click listener for group toggle
-      const container = timelineRef.current;
-      container.addEventListener('click', (e: MouseEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('group-toggle')) {
-          const groupFolder = target.parentElement;
-          const groupId = groupFolder?.getAttribute('data-group-id');
-          
-          if (groupId && timelineInstance.current) {
-            console.log('Group toggle clicked for:', groupId);
-            
-            // Simply toggle the icon
-            target.textContent = target.textContent === '▼' ? '▶' : '▼';
-            
-            // Toggle stacking globally (simple implementation)
-            timelineInstance.current.setOptions({
-              stack: target.textContent === '▼'
-            });
-          }
-        }
-      });
-
-      console.log('Timeline created successfully');
-    } catch (err) {
-      console.error('Error creating timeline:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create timeline');
-    }
-
-    return () => {
-      if (timelineInstance.current) {
-        timelineInstance.current.destroy();
-        timelineInstance.current = null;
-      }
-    };
-  }, [timelineData, timelineType]);
-
-  const handleItemClick = (item: TimelineItem) => {
-    // Similar to the original timeline.html playerPop function
-    const startPosix = Math.floor(item.start.getTime() / 1000);
-    const endPosix = item.end ? Math.floor(item.end.getTime() / 1000) : startPosix;
-    
-    console.log('Timeline item clicked:', {
-      item: item.content,
-      start: startPosix,
-      end: endPosix
-    });
-
-    // Here you could open a video player modal or navigate to the video player
-    // For now, just log the event
-    alert(`Élément: ${item.content}\nDébut: ${item.start.toLocaleString('fr-FR')}\nFin: ${item.end?.toLocaleString('fr-FR') || 'N/A'}`);
-  };
+  // handleItemClick removed - using D3Timeline handleD3ItemClick instead
 
   const handleD3ItemClick = (event: TimelineEvent) => {
     const startDate = new Date(event.start_date);
@@ -264,54 +85,7 @@ const TimelinePage: React.FC = () => {
 
   const handleTimeScaleChange = (scale: 'day' | 'week' | 'month' | 'year') => {
     setTimeScale(scale);
-    
-    if (!timelineInstance.current) return;
-
-    const now = new Date();
-    let range;
-
-    switch (scale) {
-      case 'day':
-        range = {
-          start: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-          end: new Date(now.getTime() + 24 * 60 * 60 * 1000)
-        };
-        break;
-      case 'week':
-        range = {
-          start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-          end: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-        };
-        break;
-      case 'month':
-        range = {
-          start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-          end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-        };
-        break;
-      case 'year':
-        range = {
-          start: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
-          end: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-        };
-        break;
-    }
-
-    timelineInstance.current.setWindow(range.start, range.end);
-  };
-
-  const handleZoomChange = (zoomLevel: number) => {
-    if (!timelineInstance.current) return;
-    
-    const range = timelineInstance.current.getWindow();
-    const center = new Date((range.start.getTime() + range.end.getTime()) / 2);
-    const duration = range.end.getTime() - range.start.getTime();
-    const newDuration = duration / zoomLevel;
-    
-    timelineInstance.current.setWindow(
-      new Date(center.getTime() - newDuration / 2),
-      new Date(center.getTime() + newDuration / 2)
-    );
+    // D3Timeline handles time scale internally - no manual range setting needed
   };
 
   if (loading) {
@@ -346,32 +120,7 @@ const TimelinePage: React.FC = () => {
         </div>
         
         <div className="timeline-controls">
-          <div className="scale-buttons">
-            <button 
-              type="button" 
-              className={`btn-scale ${timelineType === 'react-calendar' ? 'active' : ''}`}
-              onClick={() => setTimelineType('react-calendar')}
-              style={{ background: timelineType === 'react-calendar' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
-            >
-              React Calendar
-            </button>
-            <button 
-              type="button" 
-              className={`btn-scale ${timelineType === 'd3' ? 'active' : ''}`}
-              onClick={() => setTimelineType('d3')}
-              style={{ background: timelineType === 'd3' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
-            >
-              D3.js
-            </button>
-            <button 
-              type="button" 
-              className={`btn-scale ${timelineType === 'vis' ? 'active' : ''}`}
-              onClick={() => setTimelineType('vis')}
-              style={{ background: timelineType === 'vis' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '' }}
-            >
-              vis-timeline
-            </button>
-          </div>
+          {/* Timeline selector buttons removed - D3.js only */}
 
           <div className="scale-buttons">
             <button 
@@ -404,30 +153,12 @@ const TimelinePage: React.FC = () => {
             </button>
           </div>
           
-          <div className="zoom-control">
-            <label htmlFor="zoom-slider">ZOOM:</label>
-            <input 
-              type="range" 
-              id="zoom-slider"
-              min="0.1" 
-              max="10" 
-              step="0.1"
-              defaultValue="1"
-              onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-            />
-          </div>
+          {/* Zoom control removed - D3.js handles zoom natively with mouse wheel */}
         </div>
       </div>
 
       <div className="timeline-wrapper">
-        {timelineType === 'react-calendar' && timelineData ? (
-          <ReactCalendarTimeline
-            groups={timelineData.groups}
-            events={timelineData.events}
-            onItemClick={handleD3ItemClick}
-            timeScale={timeScale}
-          />
-        ) : timelineType === 'd3' && timelineData ? (
+        {timelineData ? (
           <D3Timeline
             groups={timelineData.groups}
             events={timelineData.events}
@@ -435,8 +166,6 @@ const TimelinePage: React.FC = () => {
             width={1200}
             timeScale={timeScale}
           />
-        ) : timelineType === 'vis' ? (
-          <div ref={timelineRef} className="timeline-visualization" />
         ) : null}
       </div>
     </div>

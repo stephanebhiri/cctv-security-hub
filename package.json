@@ -20,11 +20,9 @@
     "node-fetch": "^2.6.7",
     "on-finished": "^2.4.1",
     "react": "^18.2.0",
-    "react-calendar-timeline": "^0.28.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.0",
-    "vis-timeline": "^8.1.0",
     "web-vitals": "^2.1.0",
     "winston": "^3.17.0",
     "xmldom": "^0.6.0"
