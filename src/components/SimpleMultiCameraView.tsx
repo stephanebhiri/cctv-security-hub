@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { CCTVService } from '../services/CCTVService';
+import { formatLocalDateTime, formatLocalTime } from '../utils/timezone';
 import '../styles/surveillance.css';
 
 interface SimpleMultiCameraViewProps {
@@ -304,7 +305,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           <div className="elementdata">
             <div className="NomElement">{itemName || 'CCTV Surveillance'}</div>
             <div className="status-line">
-              <span>{new Date(timelineValue * 1000).toLocaleString('fr-FR')}</span>
+              <span>{formatLocalDateTime(timelineValue)}</span>
             </div>
           </div>
         </div>
@@ -412,7 +413,7 @@ const SimpleMultiCameraView: React.FC<SimpleMultiCameraViewProps> = ({
           {/* Timeline inline */}
           <div className="timeshift-controls">
             <span className="timeline-current">
-              {new Date(timelineValue * 1000).toLocaleTimeString()}
+              {formatLocalTime(timelineValue)}
             </span>
             <input
               type="range"
