@@ -1,0 +1,382 @@
+/* =============================================================================
+   MODAL & OVERLAY SYSTEM
+   ============================================================================= */
+
+/* ===== OVERLAY BASE ===== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--modal-overlay);
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: overlay-fade-in var(--animation-base) var(--animation-ease);
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ===== MODAL BASE ===== */
+.modal {
+  background-color: var(--modal-background);
+  border-radius: var(--modal-border-radius);
+  box-shadow: var(--modal-shadow);
+  z-index: var(--z-modal);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modal-slide-in var(--animation-base) var(--animation-ease);
+  position: relative;
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== MODAL SIZES ===== */
+.modal--sm {
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal--base {
+  width: 100%;
+  max-width: 600px;
+}
+
+.modal--lg {
+  width: 100%;
+  max-width: 800px;
+}
+
+.modal--xl {
+  width: 100%;
+  max-width: 1200px;
+}
+
+.modal--full {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+}
+
+/* ===== MODAL STRUCTURE ===== */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-content {
+  padding: var(--space-6);
+  max-height: 70vh;
+  overflow-y: auto;
+  background-color: var(--color-surface);
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-top: var(--border-width-thin) solid var(--color-border);
+  background-color: var(--primitive-black-50);
+}
+
+/* ===== CCTV FULLSCREEN MODAL ===== */
+.cctv-overlay {
+  background-color: var(--color-primary);
+  padding: 0;
+  animation: overlay-fade-in var(--animation-fast) ease;
+}
+
+.cctv-modal {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  display: grid;
+  grid-template-rows: var(--cctv-header-height) 1fr var(--cctv-controls-height);
+  grid-template-areas: 
+    "header"
+    "cameras"
+    "controls";
+  overflow: hidden;
+}
+
+/* CCTV Modal Header */
+.cctv-modal-header {
+  grid-area: header;
+  background-color: var(--color-surface);
+  color: var(--text-primary);
+  padding: 0 var(--space-5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+  height: var(--cctv-header-height);
+  min-height: var(--cctv-header-height);
+  max-height: var(--cctv-header-height);
+}
+
+.cctv-modal-content {
+  grid-area: cameras;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--primitive-black-50);
+}
+
+.cctv-modal-footer {
+  grid-area: controls;
+  background-color: var(--primitive-black-50);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width-thin) solid var(--color-border);
+  height: var(--cctv-controls-height);
+  min-height: var(--cctv-controls-height);
+  max-height: var(--cctv-controls-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+/* ===== MODAL VARIANTS ===== */
+
+/* Confirmation Modal */
+.modal--confirm .modal-content {
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.modal--confirm .modal-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space-4);
+  border-radius: var(--border-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xl);
+}
+
+.modal--confirm.modal--warning .modal-icon {
+  background-color: var(--primitive-warning-100);
+  color: var(--color-warning);
+}
+
+.modal--confirm.modal--error .modal-icon {
+  background-color: var(--primitive-error-100);
+  color: var(--color-error);
+}
+
+.modal--confirm.modal--success .modal-icon {
+  background-color: var(--primitive-success-100);
+  color: var(--color-success);
+}
+
+/* Loading Modal */
+.modal--loading .modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.modal-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--color-border);
+  border-top: 4px solid var(--color-accent);
+  border-radius: var(--border-radius-full);
+  animation: modal-spin 1s linear infinite;
+}
+
+@keyframes modal-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== DROPDOWN MODAL ===== */
+.dropdown-overlay {
+  background-color: transparent;
+  z-index: var(--z-dropdown);
+  padding: 0;
+}
+
+.dropdown-modal {
+  background-color: var(--color-surface);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  overflow: hidden;
+  animation: dropdown-slide-down var(--animation-fast) var(--animation-ease);
+}
+
+@keyframes dropdown-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  color: var(--text-primary);
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: background-color var(--animation-fast) ease;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--primitive-black-50);
+}
+
+.dropdown-item:active {
+  background-color: var(--primitive-black-100);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--space-1) 0;
+}
+
+/* ===== TOAST/NOTIFICATION MODAL ===== */
+.toast-container {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 400px;
+}
+
+.toast {
+  background-color: var(--color-surface);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-4);
+  animation: toast-slide-in var(--animation-base) var(--animation-ease);
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast--success {
+  border-left: 4px solid var(--color-success);
+}
+
+.toast--warning {
+  border-left: 4px solid var(--color-warning);
+}
+
+.toast--error {
+  border-left: 4px solid var(--color-error);
+}
+
+.toast--info {
+  border-left: 4px solid var(--color-accent);
+}
+
+/* ===== RESPONSIVE BEHAVIOR ===== */
+@media (max-width: 768px) {
+  .overlay {
+    padding: var(--space-2);
+  }
+  
+  .modal {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+  
+  .modal-header {
+    padding: var(--space-4) var(--space-5);
+  }
+  
+  .modal-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .modal-content {
+    padding: var(--space-5);
+    max-height: 60vh;
+  }
+  
+  .modal-footer {
+    padding: var(--space-4) var(--space-5);
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+  }
+  
+  .cctv-modal-header {
+    padding: 0 var(--space-4);
+  }
+  
+  .cctv-modal-footer {
+    padding: var(--space-2) var(--space-4);
+  }
+  
+  .toast-container {
+    top: var(--space-2);
+    right: var(--space-2);
+    left: var(--space-2);
+    max-width: none;
+  }
+}

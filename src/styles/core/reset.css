@@ -1,0 +1,110 @@
+/* =============================================================================
+   CSS RESET - Modern Baseline
+   ============================================================================= */
+
+/* Modern CSS Reset based on Josh Comeau's reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  /* Prevent font size inflation */
+  -webkit-text-size-adjust: 100%;
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Set base font */
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--text-primary);
+  background-color: var(--color-background);
+  /* Prevent horizontal scroll */
+  overflow-x: hidden;
+}
+
+/* Remove default styling for lists */
+ul, ol {
+  list-style: none;
+}
+
+/* Make images responsive by default */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inherit fonts for inputs and buttons */
+input, button, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Remove default button styling */
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* Remove default link styling */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Better focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Remove focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Improve table styling */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Better form field styling */
+input, textarea, select {
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+/* Better hr styling */
+hr {
+  border: none;
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--space-4) 0;
+}
+
+/* Prevent textarea resize beyond container */
+textarea {
+  resize: vertical;
+}
+
+/* Better abbr styling */
+abbr[title] {
+  text-decoration: underline dotted;
+}
+
+/* Better code styling */
+code, kbd, samp, pre {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+}

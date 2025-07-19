@@ -1,0 +1,325 @@
+/* =============================================================================
+   BUTTON COMPONENT SYSTEM
+   ============================================================================= */
+
+/* ===== BASE BUTTON ===== */
+.btn {
+  /* Layout */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  
+  /* Typography */
+  font-family: var(--font-family-primary);
+  font-weight: var(--button-font-weight);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  
+  /* Appearance */
+  border: var(--border-width-thin) solid transparent;
+  border-radius: var(--button-border-radius);
+  cursor: pointer;
+  user-select: none;
+  
+  /* Animation */
+  transition: var(--button-transition);
+  
+  /* Accessibility */
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ===== BUTTON SIZES ===== */
+.btn--sm {
+  padding: var(--button-padding-sm);
+  font-size: var(--font-size-sm);
+  min-height: 32px;
+}
+
+.btn--base {
+  padding: var(--button-padding-base);
+  font-size: var(--font-size-base);
+  min-height: 40px;
+}
+
+.btn--lg {
+  padding: var(--button-padding-lg);
+  font-size: var(--font-size-lg);
+  min-height: 48px;
+}
+
+/* ===== BUTTON VARIANTS ===== */
+
+/* Primary Button - Accent color */
+.btn--primary {
+  background-color: var(--color-accent);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--primitive-plum-700);
+  box-shadow: var(--shadow-md);
+}
+
+.btn--primary:active {
+  background-color: var(--primitive-plum-800);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary Button - Outline style */
+.btn--secondary {
+  background-color: var(--color-surface);
+  color: var(--text-primary);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background-color: var(--primitive-black-50);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.btn--secondary:active {
+  background-color: var(--primitive-black-100);
+}
+
+/* Ghost Button - Minimal style */
+.btn--ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background-color: var(--primitive-black-100);
+  color: var(--text-primary);
+}
+
+.btn--ghost:active {
+  background-color: var(--primitive-black-200);
+}
+
+/* Success Button */
+.btn--success {
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--success:hover:not(:disabled) {
+  background-color: var(--color-success-dark);
+  box-shadow: var(--shadow-md);
+}
+
+/* Warning Button */
+.btn--warning {
+  background-color: var(--color-warning);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--warning:hover:not(:disabled) {
+  background-color: var(--color-warning-dark);
+  box-shadow: var(--shadow-md);
+}
+
+/* Error/Danger Button */
+.btn--error {
+  background-color: var(--color-error);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--error:hover:not(:disabled) {
+  background-color: var(--color-error-dark);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== SPECIALIZED BUTTONS ===== */
+
+/* Icon Button - Square button for icons */
+.btn--icon {
+  padding: var(--space-2);
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: var(--border-radius-base);
+}
+
+.btn--icon.btn--sm {
+  padding: var(--space-1);
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.btn--icon.btn--lg {
+  padding: var(--space-3);
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Round button */
+.btn--round {
+  border-radius: var(--border-radius-full);
+}
+
+/* Full width button */
+.btn--full {
+  width: 100%;
+}
+
+/* ===== CCTV SPECIFIC BUTTONS ===== */
+
+/* Navigation buttons */
+.btn--nav {
+  background-color: var(--color-accent);
+  color: var(--text-inverse);
+  font-weight: var(--font-weight-medium);
+  box-shadow: 0 2px 8px rgba(107, 70, 193, 0.3);
+}
+
+.btn--nav:hover:not(:disabled) {
+  background-color: var(--primitive-plum-700);
+  box-shadow: 0 4px 12px rgba(107, 70, 193, 0.4);
+}
+
+.btn--nav.btn--active {
+  background-color: var(--color-secondary);
+  box-shadow: 0 2px 8px rgba(55, 65, 81, 0.4);
+}
+
+/* Control buttons for CCTV interface */
+.btn--control {
+  background-color: var(--color-surface);
+  color: var(--text-primary);
+  border: var(--border-width-thin) solid var(--color-border);
+  font-size: var(--font-size-sm);
+  min-width: 100px;
+  height: 32px;
+}
+
+.btn--control:hover:not(:disabled) {
+  background-color: var(--primitive-black-50);
+  border-color: var(--color-border-focus);
+}
+
+/* Play/Pause button */
+.btn--play {
+  background-color: var(--color-accent);
+  color: var(--text-inverse);
+  padding: var(--space-3) var(--space-6);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 4px 16px rgba(107, 70, 193, 0.3);
+}
+
+.btn--play:hover:not(:disabled) {
+  background-color: var(--primitive-plum-700);
+  box-shadow: 0 6px 24px rgba(107, 70, 193, 0.4);
+}
+
+/* Sync/Refresh button */
+.btn--sync {
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+  font-weight: var(--font-weight-semibold);
+}
+
+.btn--sync:hover:not(:disabled) {
+  background-color: var(--color-success-dark);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Close button for modals */
+.btn--close {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-inverse);
+  border-radius: var(--border-radius-full);
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.btn--close:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== BUTTON LOADING STATE ===== */
+.btn--loading {
+  pointer-events: none;
+  position: relative;
+}
+
+.btn--loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: var(--border-radius-full);
+  animation: btn-spin 1s linear infinite;
+}
+
+@keyframes btn-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVE BEHAVIOR ===== */
+@media (max-width: 768px) {
+  .btn--base {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-base);
+    min-height: 44px; /* Better touch target */
+  }
+  
+  .btn--sm {
+    min-height: 36px;
+  }
+  
+  .btn--lg {
+    min-height: 52px;
+  }
+}
+
+/* ===== BUTTON GROUPS ===== */
+.btn-group {
+  display: inline-flex;
+  border-radius: var(--button-border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-group .btn {
+  border-radius: 0;
+  border-right-width: 0;
+}
+
+.btn-group .btn:first-child {
+  border-top-left-radius: var(--button-border-radius);
+  border-bottom-left-radius: var(--button-border-radius);
+}
+
+.btn-group .btn:last-child {
+  border-top-right-radius: var(--button-border-radius);
+  border-bottom-right-radius: var(--button-border-radius);
+  border-right-width: var(--border-width-thin);
+}
+
+.btn-group .btn:only-child {
+  border-radius: var(--button-border-radius);
+  border-right-width: var(--border-width-thin);
+}

@@ -62,7 +62,7 @@ const ItemsSection: React.FC<ItemsSectionProps> = React.memo(({ onItemClick, onH
   }, [silentRefresh]);
 
   return (
-    <div className="space-y-6">
+    <div className="items-section">
       {/* Header Section */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-brand-50 to-accent-50 px-6 py-4 border-b border-gray-200">

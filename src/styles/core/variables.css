@@ -1,0 +1,186 @@
+/* =============================================================================
+   DESIGN SYSTEM - DESIGN TOKENS
+   Professional CCTV Security Hub
+   ============================================================================= */
+
+:root {
+  /* ===== PRIMITIVE TOKENS ===== */
+  
+  /* Color Palette - Professional Corporate */
+  --primitive-black-900: #111827;
+  --primitive-black-800: #1f2937;
+  --primitive-black-700: #374151;
+  --primitive-black-600: #4b5563;
+  --primitive-black-500: #6b7280;
+  --primitive-black-400: #9ca3af;
+  --primitive-black-300: #d1d5db;
+  --primitive-black-200: #e5e7eb;
+  --primitive-black-100: #f3f4f6;
+  --primitive-black-50: #f9fafb;
+  
+  --primitive-white: #ffffff;
+  --primitive-background: #f8fafc;
+  
+  /* Plum Accent - Subtle Corporate Touch */
+  --primitive-plum-900: #3c1a6e;
+  --primitive-plum-800: #4c2a85;
+  --primitive-plum-700: #553c9a;
+  --primitive-plum-600: #6b46c1;
+  --primitive-plum-500: #8b5cf6;
+  --primitive-plum-400: #a78bfa;
+  --primitive-plum-300: #c4b5fd;
+  --primitive-plum-200: #ddd6fe;
+  --primitive-plum-100: #ede9fe;
+  --primitive-plum-50: #f5f3ff;
+  
+  /* Status Colors */
+  --primitive-success-600: #047857;
+  --primitive-success-500: #059669;
+  --primitive-success-400: #10b981;
+  --primitive-warning-600: #b45309;
+  --primitive-warning-500: #d97706;
+  --primitive-warning-400: #f59e0b;
+  --primitive-error-600: #b91c1c;
+  --primitive-error-500: #dc2626;
+  --primitive-error-400: #ef4444;
+  
+  /* ===== SPACING TOKENS ===== */
+  --space-1: 4px;    /* 0.25rem */
+  --space-2: 8px;    /* 0.5rem */
+  --space-3: 12px;   /* 0.75rem */
+  --space-4: 16px;   /* 1rem */
+  --space-5: 20px;   /* 1.25rem */
+  --space-6: 24px;   /* 1.5rem */
+  --space-8: 32px;   /* 2rem */
+  --space-10: 40px;  /* 2.5rem */
+  --space-12: 48px;  /* 3rem */
+  --space-16: 64px;  /* 4rem */
+  --space-20: 80px;  /* 5rem */
+  
+  /* ===== TYPOGRAPHY TOKENS ===== */
+  --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Monaco', 'Consolas', monospace;
+  
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* ===== BORDER TOKENS ===== */
+  --border-width-thin: 1px;
+  --border-width-thick: 2px;
+  --border-radius-none: 0;
+  --border-radius-sm: 2px;
+  --border-radius-base: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --border-radius-full: 50%;
+  
+  /* ===== SHADOW TOKENS ===== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.12);
+  
+  /* ===== SEMANTIC TOKENS ===== */
+  
+  /* Core Colors - Mapped from primitives */
+  --color-primary: var(--primitive-black-900);
+  --color-secondary: var(--primitive-black-700);
+  --color-tertiary: var(--primitive-black-500);
+  --color-accent: var(--primitive-plum-600);
+  --color-surface: var(--primitive-white);
+  --color-background: var(--primitive-background);
+  --color-border: var(--primitive-black-200);
+  --color-border-focus: var(--primitive-plum-600);
+  
+  /* Text Colors */
+  --text-primary: var(--primitive-black-900);
+  --text-secondary: var(--primitive-black-700);
+  --text-tertiary: var(--primitive-black-500);
+  --text-inverse: var(--primitive-white);
+  --text-accent: var(--primitive-plum-600);
+  
+  /* Status Colors */
+  --color-success: var(--primitive-success-500);
+  --color-success-dark: var(--primitive-success-600);
+  --color-warning: var(--primitive-warning-500);
+  --color-warning-dark: var(--primitive-warning-600);
+  --color-error: var(--primitive-error-500);
+  --color-error-dark: var(--primitive-error-600);
+  
+  /* ===== COMPONENT TOKENS ===== */
+  
+  /* Button Tokens */
+  --button-padding-sm: var(--space-2) var(--space-3);
+  --button-padding-base: var(--space-3) var(--space-4);
+  --button-padding-lg: var(--space-4) var(--space-6);
+  --button-border-radius: var(--border-radius-base);
+  --button-font-weight: var(--font-weight-medium);
+  --button-transition: all 0.2s ease;
+  
+  /* Input Tokens */
+  --input-padding: var(--space-3) var(--space-4);
+  --input-border: var(--border-width-thin) solid var(--color-border);
+  --input-border-focus: var(--border-width-thick) solid var(--color-border-focus);
+  --input-border-radius: var(--border-radius-base);
+  --input-background: var(--color-surface);
+  
+  /* Modal Tokens */
+  --modal-background: var(--color-surface);
+  --modal-border-radius: var(--border-radius-lg);
+  --modal-shadow: var(--shadow-xl);
+  --modal-overlay: rgba(0, 0, 0, 0.8);
+  
+  /* CCTV Specific Tokens */
+  --cctv-header-height: 60px;
+  --cctv-controls-height: 80px;
+  --cctv-camera-aspect-ratio: 16 / 9;
+  --cctv-camera-background: var(--primitive-black-900);
+  --cctv-camera-border: var(--border-width-thin) solid var(--color-border);
+  --cctv-camera-border-radius: var(--border-radius-lg);
+  
+  /* Timeline Tokens */
+  --timeline-track-height: 40px;
+  --timeline-segment-height: 36px;
+  --timeline-indicator-width: 3px;
+  --timeline-graduation-height: 60px;
+  
+  /* Animation Tokens */
+  --animation-fast: 0.15s;
+  --animation-base: 0.2s;
+  --animation-slow: 0.3s;
+  --animation-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Z-Index Scale */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 800;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+:root {
+  --breakpoint-sm: 640px;   /* Small devices */
+  --breakpoint-md: 768px;   /* Medium devices */
+  --breakpoint-lg: 1024px;  /* Large devices */
+  --breakpoint-xl: 1280px;  /* Extra large devices */
+  --breakpoint-2xl: 1536px; /* 2X large devices */
+}

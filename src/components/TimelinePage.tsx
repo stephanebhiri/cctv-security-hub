@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 // vis-timeline imports removed - D3.js only
-import '../styles/timeline.css';
-import '../styles/d3-timeline.css';
+// Timeline styles are now included in the main design system
 import D3Timeline from './D3Timeline';
 // ReactCalendarTimeline removed - D3.js only
 

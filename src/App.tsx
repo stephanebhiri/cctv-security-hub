@@ -5,7 +5,7 @@ import ItemsSection from './components/ItemsSection';
 import HistoryPage from './components/HistoryPage';
 import TimelinePage from './components/TimelinePage';
 import { automationAPI } from './api/AutomationAPI';
-import './App.css';
+// App.css styles are now included in the main design system
 
 const App: React.FC = () => {
   const [selectedDateTime, setSelectedDateTime] = useState<string>('');

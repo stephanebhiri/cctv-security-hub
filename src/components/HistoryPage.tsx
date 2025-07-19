@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HistoryService, HistoryItem } from '../services/HistoryService';
 import HistoryTable from './HistoryTable';
 import SimpleMultiCameraView from './SimpleMultiCameraView';
-import '../styles/history.css';
+// History styles are now included in the main design system
 
 const HistoryPage: React.FC = () => {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);

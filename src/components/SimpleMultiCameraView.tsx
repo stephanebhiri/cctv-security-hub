@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { CCTVService } from '../services/CCTVService';
 import { formatLocalDateTime, formatLocalTime } from '../utils/timezone';
-import '../styles/surveillance.css';
+// CCTV styles are now included in the main design system
 
 interface SimpleMultiCameraViewProps {
   targetTimestamp: number;
